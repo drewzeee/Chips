@@ -53,7 +53,7 @@ export async function POST(request: Request) {
   const data = parsed.data;
   const descriptionStartsWith = data.descriptionStartsWith?.trim() || null;
   const descriptionContains = data.descriptionContains?.trim() || null;
-  const amountEquals = data.amountEquals ? Math.abs(parseAmountToCents(data.amountEquals)) : null;
+  const amountEquals = data.amountEquals && data.amountEquals.trim() !== "" ? Math.abs(parseAmountToCents(data.amountEquals)) : null;
 
   const rule = await prisma.transactionRule.create({
     data: {

@@ -254,8 +254,8 @@ export default async function DashboardPage() {
             <CardTitle>Net Worth</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-semibold">{formatCurrency(totalNetWorth)}</p>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="text-3xl font-semibold text-[var(--card-foreground)]">{formatCurrency(totalNetWorth)}</p>
+            <p className="mt-1 text-sm text-[var(--muted-foreground)]">
               Across {accountBalances.length} accounts
             </p>
           </CardContent>
@@ -266,8 +266,8 @@ export default async function DashboardPage() {
             <CardTitle>Income (month)</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-semibold">{formatCurrency(totalIncome)}</p>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="text-3xl font-semibold text-[var(--card-foreground)]">{formatCurrency(totalIncome)}</p>
+            <p className="mt-1 text-sm text-[var(--muted-foreground)]">
               Includes {formatCurrency(uncategorizedIncome)} uncategorized
             </p>
           </CardContent>
@@ -278,8 +278,8 @@ export default async function DashboardPage() {
             <CardTitle>Expenses (month)</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-semibold">{formatCurrency(totalExpenses)}</p>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="text-3xl font-semibold text-[var(--card-foreground)]">{formatCurrency(totalExpenses)}</p>
+            <p className="mt-1 text-sm text-[var(--muted-foreground)]">
               Includes {formatCurrency(uncategorizedExpense)} uncategorized
             </p>
           </CardContent>
@@ -290,8 +290,8 @@ export default async function DashboardPage() {
             <CardTitle>Cash Flow</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-semibold">{formatCurrency(totalIncome - totalExpenses)}</p>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="text-3xl font-semibold text-[var(--card-foreground)]">{formatCurrency(totalIncome - totalExpenses)}</p>
+            <p className="mt-1 text-sm text-[var(--muted-foreground)]">
               Avg. monthly net: {formatCurrency(averageNetCash)}
             </p>
           </CardContent>
@@ -325,21 +325,21 @@ export default async function DashboardPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             {budgetProgress.length === 0 && (
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-[var(--muted-foreground)]">
                 Set monthly budgets in the Categories tab to track progress.
               </p>
             )}
             {budgetProgress.slice(0, 5).map((budget) => (
               <div key={budget.id} className="space-y-1">
-                <div className="flex justify-between text-sm font-medium text-gray-700">
+                <div className="flex justify-between text-sm font-medium text-[var(--card-foreground)]">
                   <span>{budget.name}</span>
                   <span>
                     {formatCurrency(budget.spent)} / {formatCurrency(budget.limit ?? 0)}
                   </span>
                 </div>
-                <div className="h-2 rounded-full bg-gray-200">
+                <div className="h-2 rounded-full bg-[var(--secondary)]">
                   <div
-                    className="h-2 rounded-full bg-blue-600"
+                    className="h-2 rounded-full bg-[var(--primary)]"
                     style={{ width: `${budget.percent}%` }}
                   />
                 </div>
@@ -356,10 +356,10 @@ export default async function DashboardPage() {
             {accountBalances.map((account) => (
               <div key={account.id} className="flex items-center justify-between text-sm">
                 <div>
-                  <p className="font-medium text-gray-800">{account.name}</p>
-                  <p className="text-xs text-gray-500">{account.type}</p>
+                  <p className="font-medium text-[var(--card-foreground)]">{account.name}</p>
+                  <p className="text-xs text-[var(--muted-foreground)]">{account.type}</p>
                 </div>
-                <p className="font-semibold text-gray-900">
+                <p className="font-semibold text-[var(--card-foreground)]">
                   {formatCurrency(account.balance, account.currency)}
                 </p>
               </div>
@@ -392,7 +392,7 @@ export default async function DashboardPage() {
                 return (
                   <TableRow key={transaction.id}>
                     <TableCell>{format(transaction.date, "MMM d, yyyy")}</TableCell>
-                    <TableCell className="font-medium text-gray-800">
+                    <TableCell className="font-medium text-[var(--card-foreground)]">
                       {transaction.description}
                     </TableCell>
                     <TableCell>{transaction.account.name}</TableCell>

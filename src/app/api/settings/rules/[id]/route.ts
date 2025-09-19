@@ -27,7 +27,7 @@ export async function PUT(
   const data = parsed.data;
   const descriptionStartsWith = data.descriptionStartsWith?.trim() || null;
   const descriptionContains = data.descriptionContains?.trim() || null;
-  const amountEquals = data.amountEquals ? Math.abs(parseAmountToCents(data.amountEquals)) : null;
+  const amountEquals = data.amountEquals && data.amountEquals.trim() !== "" ? Math.abs(parseAmountToCents(data.amountEquals)) : null;
 
   const existing = await prisma.transactionRule.findUnique({ where: { id } });
   if (!existing || existing.userId !== user.id) {

@@ -15,8 +15,9 @@ function buildFilters(params: URLSearchParams) {
   const categoryId = params.get("categoryId") ?? undefined;
   const from = params.get("from") ? new Date(params.get("from")!) : undefined;
   const to = params.get("to") ? new Date(params.get("to")!) : undefined;
+  const uncategorized = params.get("uncategorized") === "true";
 
-  return { accountId, status, search, categoryId, from, to };
+  return { accountId, status, search, categoryId, from, to, uncategorized };
 }
 
 export async function GET(request: Request) {
@@ -49,7 +50,13 @@ export async function GET(request: Request) {
             ],
           }
         : {}),
-      ...(filters.categoryId
+      ...(filters.uncategorized
+        ? {
+            splits: {
+              none: {},
+            },
+          }
+        : filters.categoryId
         ? {
             splits: {
               some: {

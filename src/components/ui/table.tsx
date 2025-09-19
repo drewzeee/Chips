@@ -11,15 +11,15 @@ export function Table({ className, ...props }: HTMLAttributes<HTMLTableElement>)
 }
 
 export function TableHead({ className, ...props }: HTMLAttributes<HTMLTableSectionElement>) {
-  return <thead className={cn("bg-gray-50 text-gray-600", className)} {...props} />;
+  return <thead className={cn("bg-[var(--secondary)] text-[var(--muted-foreground)]", className)} {...props} />;
 }
 
 export function TableBody({ className, ...props }: HTMLAttributes<HTMLTableSectionElement>) {
-  return <tbody className={cn("divide-y divide-gray-200", className)} {...props} />;
+  return <tbody className={cn("divide-y divide-[var(--border)]", className)} {...props} />;
 }
 
 export function TableRow({ className, ...props }: HTMLAttributes<HTMLTableRowElement>) {
-  return <tr className={cn("hover:bg-gray-50", className)} {...props} />;
+  return <tr className={cn("hover:bg-[var(--accent)]", className)} {...props} />;
 }
 
 export function TableHeaderCell({ className, ...props }: HTMLAttributes<HTMLTableCellElement>) {

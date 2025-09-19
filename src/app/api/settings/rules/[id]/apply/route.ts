@@ -24,11 +24,18 @@ export async function POST(
 
   const filters: Prisma.TransactionWhereInput = {
     userId: user.id,
-    NOT: {
-      reference: {
-        startsWith: "transfer_",
+    OR: [
+      {
+        reference: null,
       },
-    },
+      {
+        NOT: {
+          reference: {
+            startsWith: "transfer_",
+          },
+        },
+      },
+    ],
   };
 
   if (rule.accountId) {

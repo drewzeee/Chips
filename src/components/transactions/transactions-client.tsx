@@ -89,18 +89,13 @@ export interface TransactionItem {
 
 type Filters = {
   accountId: string;
-  status: string;
   categoryId: string;
   search: string;
   from: string;
   to: string;
+  uncategorized: boolean;
 };
 
-const statusTone: Record<TransactionItem["status"], "default" | "success" | "warning"> = {
-  CLEARED: "success",
-  PENDING: "warning",
-  RECONCILED: "default",
-};
 
 interface ManualTransferCandidate {
   transaction: {
@@ -134,11 +129,11 @@ export function TransactionsClient({
   const [transactions, setTransactions] = useState(initialTransactions);
   const [filters, setFilters] = useState<Filters>({
     accountId: "",
-    status: "",
     categoryId: "",
     search: "",
     from: "",
     to: "",
+    uncategorized: false,
   });
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -193,11 +188,11 @@ export function TransactionsClient({
     const controller = new AbortController();
     const params = new URLSearchParams();
     if (filters.accountId) params.append("accountId", filters.accountId);
-    if (filters.status) params.append("status", filters.status);
     if (filters.categoryId) params.append("categoryId", filters.categoryId);
     if (filters.search) params.append("search", filters.search);
     if (filters.from) params.append("from", filters.from);
     if (filters.to) params.append("to", filters.to);
+    if (filters.uncategorized) params.append("uncategorized", "true");
     params.append("limit", "200");
 
     setLoading(true);
@@ -208,7 +203,7 @@ export function TransactionsClient({
       .finally(() => setLoading(false));
 
     return () => controller.abort();
-  }, [filters.accountId, filters.status, filters.categoryId, filters.search, filters.from, filters.to]);
+  }, [filters.accountId, filters.categoryId, filters.search, filters.from, filters.to, filters.uncategorized]);
 
   const resetForm = () => {
     setSelectedId(null);
@@ -545,19 +540,6 @@ export function TransactionsClient({
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="filterStatus">Status</Label>
-              <Select
-                id="filterStatus"
-                value={filters.status}
-                onChange={(event) => setFilters((prev) => ({ ...prev, status: event.target.value }))}
-              >
-                <option value="">All</option>
-                <option value="PENDING">Pending</option>
-                <option value="CLEARED">Cleared</option>
-                <option value="RECONCILED">Reconciled</option>
-              </Select>
-            </div>
-            <div className="space-y-2">
               <Label htmlFor="filterCategory">Category</Label>
               <Select
                 id="filterCategory"
@@ -599,6 +581,21 @@ export function TransactionsClient({
                 onChange={(event) => setFilters((prev) => ({ ...prev, to: event.target.value }))}
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="uncategorized">Filters</Label>
+              <div className="flex items-center space-x-2">
+                <input
+                  id="uncategorized"
+                  type="checkbox"
+                  checked={filters.uncategorized}
+                  onChange={(event) => setFilters((prev) => ({ ...prev, uncategorized: event.target.checked }))}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <Label htmlFor="uncategorized" className="text-sm font-normal">
+                  Uncategorized only
+                </Label>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -607,7 +604,7 @@ export function TransactionsClient({
         <CardHeader className="flex flex-wrap items-center justify-between gap-3">
           <CardTitle>Transactions</CardTitle>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-[var(--muted-foreground)]">
               {loading ? "Loading..." : `${transactions.length} results`}
             </span>
             <Button size="sm" onClick={openAddTransactionDrawer}>
@@ -626,29 +623,27 @@ export function TransactionsClient({
                 <TableHeaderCell>Description</TableHeaderCell>
                 <TableHeaderCell>Account</TableHeaderCell>
                 <TableHeaderCell>Category</TableHeaderCell>
-                <TableHeaderCell>Status</TableHeaderCell>
                 <TableHeaderCell className="text-right">Amount</TableHeaderCell>
                 <TableHeaderCell></TableHeaderCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {transactions.map((transaction) => {
-                const categoriesLabel =
-                  transaction.splits.length === 0
-                    ? "Uncategorized"
-                    : transaction.splits
-                        .map((split) => `${split.category?.name ?? "Uncategorized"}`)
-                        .join(", ");
+                const isUncategorized = transaction.splits.length === 0;
+                const categoriesLabel = isUncategorized
+                  ? "Uncategorized"
+                  : transaction.splits
+                      .map((split) => `${split.category?.name ?? "Uncategorized"}`)
+                      .join(", ");
                 return (
                     <TableRow key={transaction.id}>
                       <TableCell>{format(new Date(transaction.date), "MMM d, yyyy")}</TableCell>
                       <TableCell>
-                        <div className="font-medium text-gray-800">{transaction.description}</div>
+                        <div className="font-medium text-[var(--foreground)]">{transaction.description}</div>
                       </TableCell>
                       <TableCell>{transaction.account.name}</TableCell>
-                    <TableCell>{categoriesLabel}</TableCell>
-                    <TableCell>
-                      <Badge tone={statusTone[transaction.status]}>{transaction.status}</Badge>
+                    <TableCell className={isUncategorized ? "text-red-600 font-medium" : ""}>
+                      {categoriesLabel}
                     </TableCell>
                     <TableCell className="text-right font-semibold">
                       {formatCurrency(transaction.amount, transaction.account.currency)}
@@ -676,14 +671,14 @@ export function TransactionsClient({
 
       {manualTransferModal && manualTransferTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl">
+          <div className="w-full max-w-2xl rounded-2xl bg-[var(--card)] p-6 shadow-xl">
             <div className="flex items-start justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">Convert to transfer</h2>
-                <p className="text-sm text-gray-500">
+                <h2 className="text-lg font-semibold text-[var(--foreground)]">Convert to transfer</h2>
+                <p className="text-sm text-[var(--muted-foreground)]">
                   Select the matching transaction to pair with
                   {" "}
-                  <span className="font-medium text-gray-900">{manualTransferTarget.description}</span>.
+                  <span className="font-medium text-[var(--foreground)]">{manualTransferTarget.description}</span>.
                 </p>
               </div>
               <Button variant="ghost" size="sm" onClick={closeManualTransferModal}>
@@ -756,13 +751,13 @@ export function TransactionsClient({
 
       {isTransactionDrawerOpen && (
         <div className="fixed inset-0 z-40 flex justify-end bg-black/40">
-          <div className="h-full w-full max-w-md overflow-y-auto bg-white p-6 shadow-2xl">
+          <div className="h-full w-full max-w-md overflow-y-auto bg-[var(--card)] p-6 shadow-2xl">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">
+                <h2 className="text-lg font-semibold text-[var(--foreground)]">
                   {selectedId ? "Edit transaction" : "Add transaction"}
                 </h2>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-[var(--muted-foreground)]">
                   {selectedId ? "Adjust the details below and save." : "Record a new income or expense."}
                 </p>
               </div>
@@ -843,7 +838,7 @@ export function TransactionsClient({
                   </Button>
                 </div>
                 {splitFields.length === 0 && (
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-[var(--muted-foreground)]">
                     Use splits to divide the transaction across multiple categories.
                   </p>
                 )}
@@ -899,11 +894,11 @@ export function TransactionsClient({
 
       {isTransferDrawerOpen && (
         <div className="fixed inset-0 z-40 flex justify-end bg-black/40">
-          <div className="h-full w-full max-w-md overflow-y-auto bg-white p-6 shadow-2xl">
+          <div className="h-full w-full max-w-md overflow-y-auto bg-[var(--card)] p-6 shadow-2xl">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">Create transfer</h2>
-                <p className="text-sm text-gray-500">Move funds between accounts without affecting budgets.</p>
+                <h2 className="text-lg font-semibold text-[var(--foreground)]">Create transfer</h2>
+                <p className="text-sm text-[var(--muted-foreground)]">Move funds between accounts without affecting budgets.</p>
               </div>
               <Button variant="ghost" size="sm" onClick={closeTransferDrawer}>
                 Close

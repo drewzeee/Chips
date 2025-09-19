@@ -11,12 +11,12 @@ const baseClasses =
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    "bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-blue-600",
+    "bg-[var(--primary)] text-[var(--primary-foreground)] hover:bg-[var(--primary)]/90 focus-visible:ring-[var(--ring)]",
   secondary:
-    "bg-gray-100 text-gray-900 hover:bg-gray-200 focus-visible:ring-gray-400",
-  ghost: "hover:bg-gray-100 text-gray-900 focus-visible:ring-gray-400",
+    "bg-[var(--secondary)] text-[var(--secondary-foreground)] hover:bg-[var(--secondary)]/80 focus-visible:ring-[var(--ring)]",
+  ghost: "hover:bg-[var(--accent)] text-[var(--accent-foreground)] focus-visible:ring-[var(--ring)]",
   destructive:
-    "bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-600",
+    "bg-[var(--destructive)] text-[var(--destructive-foreground)] hover:bg-[var(--destructive)]/90 focus-visible:ring-[var(--ring)]",
 };
 
 const sizeClasses: Record<ButtonSize, string> = {

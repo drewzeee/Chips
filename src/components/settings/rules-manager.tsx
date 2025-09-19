@@ -249,7 +249,7 @@ export function RulesManager({ initialRules, categories, accounts }: RulesManage
         accountId: parsed.data.accountId || null,
         descriptionStartsWith: parsed.data.descriptionStartsWith?.trim() || null,
         descriptionContains: parsed.data.descriptionContains?.trim() || null,
-        amountEquals: normalizedAmount ? normalizedAmount : null,
+        amountEquals: normalizedAmount && normalizedAmount !== "" ? normalizedAmount : null,
         priority: parsed.data.priority ?? 100,
       };
 

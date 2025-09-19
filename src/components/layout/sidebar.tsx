@@ -18,9 +18,9 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden w-64 flex-col border-r border-gray-200 bg-gray-50 p-6 lg:flex">
+    <aside className="hidden w-64 flex-col border-r border-[var(--border)] bg-[var(--secondary)] p-6 lg:flex">
       <div className="mb-6">
-        <Link href="/dashboard" className="text-xl font-semibold text-gray-900">
+        <Link href="/dashboard" className="text-xl font-semibold text-[var(--foreground)]">
           Personal Finance Portal
         </Link>
       </div>
@@ -34,8 +34,8 @@ export function Sidebar() {
               className={cn(
                 "block rounded-md px-4 py-2 text-sm font-medium transition-colors",
                 active
-                  ? "bg-blue-600 text-white shadow"
-                  : "text-gray-700 hover:bg-gray-200"
+                  ? "bg-[var(--primary)] text-[var(--primary-foreground)] shadow"
+                  : "text-[var(--secondary-foreground)] hover:bg-[var(--accent)]"
               )}
             >
               {link.label}
