@@ -1,4 +1,13 @@
-import { endOfMonth, format, startOfMonth, subMonths } from "date-fns";
+import {
+  addMonths,
+  differenceInMonths,
+  endOfMonth,
+  format,
+  startOfMonth,
+  subMonths,
+  isValid,
+  parseISO,
+} from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { formatCurrency } from "@/lib/utils";
 import { NetWorthChart } from "@/components/dashboard/net-worth-chart";
@@ -7,12 +16,43 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { getAuthSession } from "@/lib/auth";
 import Link from "next/link";
+import {
+  DEFAULT_NET_WORTH_RANGE,
+  NET_WORTH_RANGE_OPTIONS,
+  type NetWorthRangeValue,
+} from "@/lib/dashboard";
+import { NetWorthRangeSelector } from "@/components/dashboard/net-worth-range-selector";
 
 function sumValues(values: number[]) {
   return values.reduce((total, value) => total + value, 0);
 }
 
-export default async function DashboardPage() {
+interface DashboardPageProps {
+  searchParams?: Record<string, string | string[] | undefined>;
+}
+
+function resolveReferenceDate(searchParams?: Record<string, string | string[] | undefined>) {
+  const raw = searchParams?.date;
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  if (typeof value === "string") {
+    const parsed = parseISO(value);
+    if (isValid(parsed)) {
+      return parsed;
+    }
+  }
+  return new Date();
+}
+
+function resolveTrendRange(searchParams?: Record<string, string | string[] | undefined>) {
+  const raw = searchParams?.range;
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  const allowed = new Set(NET_WORTH_RANGE_OPTIONS.map((option) => option.value));
+  return allowed.has(value as NetWorthRangeValue)
+    ? (value as NetWorthRangeValue)
+    : DEFAULT_NET_WORTH_RANGE;
+}
+
+export default async function DashboardPage({ searchParams }: DashboardPageProps = {}) {
   const session = await getAuthSession();
   const userId = session?.user?.id;
 
@@ -20,10 +60,41 @@ export default async function DashboardPage() {
     return null;
   }
 
-  const now = new Date();
+  const now = resolveReferenceDate(searchParams);
+  const rangeKey = resolveTrendRange(searchParams);
   const monthStart = startOfMonth(now);
   const monthEnd = endOfMonth(now);
-  const trendStart = startOfMonth(subMonths(now, 5));
+
+  let trendStart = startOfMonth(subMonths(now, 5));
+  let trendMonths = 6;
+
+  if (rangeKey === "1y") {
+    trendMonths = 12;
+    trendStart = startOfMonth(subMonths(now, trendMonths - 1));
+  } else if (rangeKey === "2y") {
+    trendMonths = 24;
+    trendStart = startOfMonth(subMonths(now, trendMonths - 1));
+  } else if (rangeKey === "all") {
+    const earliest = await prisma.transaction.findFirst({
+      where: { userId },
+      orderBy: { date: "asc" },
+      select: { date: true },
+    });
+
+    if (earliest?.date) {
+      trendStart = startOfMonth(earliest.date);
+      trendMonths = differenceInMonths(startOfMonth(now), trendStart) + 1;
+    } else {
+      trendMonths = 6;
+      trendStart = startOfMonth(subMonths(now, trendMonths - 1));
+    }
+  } else {
+    trendStart = startOfMonth(subMonths(now, trendMonths - 1));
+  }
+
+  if (trendMonths < 1) {
+    trendMonths = 1;
+  }
 
   const [accounts, transactionTotals, monthlySplits, uncategorizedTransactions, recentTransactions, preRangeSums, trendTransactions] =
     await Promise.all([
@@ -181,21 +252,29 @@ export default async function DashboardPage() {
     },
   });
 
-  const budgetProgress = budgetCategories.map((category) => {
-    const spent = expenseSplits
-      .filter((split) => split.categoryId === category.id)
-      .reduce((total, split) => total + Math.abs(split.amount), 0);
+  const budgetProgress = budgetCategories
+    .map((category) => {
+      const spent = expenseSplits
+        .filter((split) => split.categoryId === category.id)
+        .reduce((total, split) => total + Math.abs(split.amount), 0);
 
-    const limit = category.budgetLimit ?? 0;
-    const percent = limit > 0 ? Math.min(100, Math.round((spent / limit) * 100)) : 0;
-    return {
-      id: category.id,
-      name: category.name,
-      spent,
-      limit,
-      percent,
-    };
-  });
+      const limit = category.budgetLimit ?? 0;
+      const percent = limit > 0 ? Math.min(100, Math.round((spent / limit) * 100)) : 0;
+      return {
+        id: category.id,
+        name: category.name,
+        spent,
+        limit,
+        percent,
+      };
+    })
+    .sort((a, b) => {
+      if (b.percent !== a.percent) {
+        return b.percent - a.percent;
+      }
+      // tie-breaker: show higher absolute spend first
+      return b.spent - a.spent;
+    });
 
   const baseBalances = new Map(
     accounts.map((account) => [account.id, account.openingBalance])
@@ -206,10 +285,11 @@ export default async function DashboardPage() {
     baseBalances.set(group.accountId, current + (group._sum.amount ?? 0));
   }
 
-  const months = Array.from({ length: 6 }).map((_, index) => {
-    const monthDate = startOfMonth(subMonths(now, 5 - index));
-    return monthDate;
-  });
+  const months = Array.from({ length: trendMonths }).map((_, index) =>
+    startOfMonth(addMonths(trendStart, index))
+  );
+
+  const labelFormat = trendMonths > 12 ? "MMM yy" : "MMM";
 
   let cursor = 0;
   const trendData = months.map((month) => {
@@ -223,7 +303,7 @@ export default async function DashboardPage() {
 
     const total = Array.from(baseBalances.values()).reduce((total, value) => total + value, 0);
     return {
-      label: format(month, "MMM"),
+      label: format(month, labelFormat),
       value: total,
     };
   });
@@ -300,8 +380,9 @@ export default async function DashboardPage() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
-          <CardHeader>
+          <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle>Net Worth Trend</CardTitle>
+            <NetWorthRangeSelector />
           </CardHeader>
           <CardContent className="h-[280px]">
             <NetWorthChart data={trendData} currency={accounts[0]?.currency ?? "USD"} />
@@ -337,9 +418,9 @@ export default async function DashboardPage() {
                     {formatCurrency(budget.spent)} / {formatCurrency(budget.limit ?? 0)}
                   </span>
                 </div>
-                <div className="h-2 rounded-full bg-[var(--secondary)]">
+                <div className="h-2.5 w-full overflow-hidden rounded-full bg-[var(--secondary)]">
                   <div
-                    className="h-2 rounded-full bg-[var(--primary)]"
+                    className="h-full rounded-full bg-gradient-to-r from-[var(--primary)] via-[color:color-mix(in_srgb,var(--primary)_75%,#c7d2fe_25%)] to-[color:color-mix(in_srgb,var(--primary)_55%,#c7d2fe_45%)] transition-[width] duration-500"
                     style={{ width: `${budget.percent}%` }}
                   />
                 </div>
@@ -369,9 +450,12 @@ export default async function DashboardPage() {
       </div>
 
       <Card>
-        <CardHeader className="flex items-center justify-between">
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Recent Transactions</CardTitle>
-          <Link href="/transactions" className="text-sm text-blue-600 hover:underline">
+          <Link
+            href="/transactions"
+            className="text-sm font-medium text-[var(--primary)] transition hover:brightness-110"
+          >
             View all
           </Link>
         </CardHeader>

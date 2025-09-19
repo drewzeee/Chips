@@ -28,26 +28,33 @@ export function NetWorthChart({ data, currency = "USD" }: NetWorthChartProps) {
       <AreaChart data={data} margin={{ top: 10, left: 0, right: 0, bottom: 0 }}>
         <defs>
           <linearGradient id="netWorthGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3} />
-            <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
+            <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3} />
+            <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
           </linearGradient>
         </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-        <XAxis dataKey="label" stroke="#6b7280" fontSize={12} />
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+        <XAxis dataKey="label" stroke="var(--muted-foreground)" fontSize={12} />
         <YAxis
-          stroke="#6b7280"
+          stroke="var(--muted-foreground)"
           fontSize={12}
           tickFormatter={(value) => formatter(value as number, currency)}
           width={80}
         />
         <Tooltip
           formatter={(value: number) => formatter(value, currency)}
-          labelStyle={{ color: "#111827" }}
+          contentStyle={{
+            background: "var(--card)",
+            border: `1px solid var(--border)`,
+            borderRadius: 12,
+            boxShadow: "0 20px 32px -24px rgba(15,23,42,0.45)",
+            color: "var(--card-foreground)",
+          }}
+          labelStyle={{ color: "var(--muted-foreground)" }}
         />
         <Area
           type="monotone"
           dataKey="value"
-          stroke="#2563eb"
+          stroke="var(--primary)"
           strokeWidth={2}
           fill="url(#netWorthGradient)"
         />

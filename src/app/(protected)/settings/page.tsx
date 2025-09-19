@@ -3,6 +3,7 @@ import { getAuthSession } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "date-fns";
 import { RulesManager } from "@/components/settings/rules-manager";
+import { ClearTransactionsButton } from "@/components/settings/clear-transactions-button";
 
 export default async function SettingsPage() {
   const session = await getAuthSession();
@@ -57,18 +58,24 @@ export default async function SettingsPage() {
           <CardHeader>
             <CardTitle>Profile</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm text-gray-600">
-            <div>
-              <p className="text-xs uppercase text-gray-400">Name</p>
-              <p className="font-medium text-gray-900">{user?.name ?? "Not provided"}</p>
+          <CardContent className="space-y-4 text-sm text-[var(--muted-foreground)]">
+            <div className="space-y-1">
+              <p className="text-xs uppercase tracking-wide text-[color:color-mix(in_srgb,var(--muted-foreground)_75%,transparent)]">
+                Name
+              </p>
+              <p className="font-medium text-[var(--foreground)]">{user?.name ?? "Not provided"}</p>
             </div>
-            <div>
-              <p className="text-xs uppercase text-gray-400">Email</p>
-              <p className="font-medium text-gray-900">{user?.email}</p>
+            <div className="space-y-1">
+              <p className="text-xs uppercase tracking-wide text-[color:color-mix(in_srgb,var(--muted-foreground)_75%,transparent)]">
+                Email
+              </p>
+              <p className="font-medium text-[var(--foreground)]">{user?.email}</p>
             </div>
-            <div>
-              <p className="text-xs uppercase text-gray-400">Member since</p>
-              <p className="font-medium text-gray-900">
+            <div className="space-y-1">
+              <p className="text-xs uppercase tracking-wide text-[color:color-mix(in_srgb,var(--muted-foreground)_75%,transparent)]">
+                Member since
+              </p>
+              <p className="font-medium text-[var(--foreground)]">
                 {user?.createdAt ? format(user.createdAt, "MMMM d, yyyy") : "—"}
               </p>
             </div>
@@ -79,7 +86,7 @@ export default async function SettingsPage() {
           <CardHeader>
             <CardTitle>Import templates</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3 text-sm text-gray-600">
+          <CardContent className="space-y-3 text-sm text-[var(--muted-foreground)]">
             {templates.length === 0 && <p>No saved templates yet.</p>}
             {templates.map((template) => {
               let mappingPreview = "";
@@ -90,10 +97,15 @@ export default async function SettingsPage() {
                 mappingPreview = "Unreadable mapping";
               }
               return (
-                <div key={template.id} className="rounded-lg border border-gray-200 p-3">
-                  <p className="font-medium text-gray-900">{template.name}</p>
-                  <p className="text-xs text-gray-500">Updated {format(template.updatedAt, "MMM d, yyyy")}</p>
-                  <p className="text-xs text-gray-600">{mappingPreview}</p>
+                <div
+                  key={template.id}
+                  className="rounded-xl border border-[var(--border)] bg-[color:color-mix(in_srgb,var(--card)_75%,var(--background)_25%)] p-4 shadow-sm"
+                >
+                  <p className="font-medium text-[var(--card-foreground)]">{template.name}</p>
+                  <p className="text-xs text-[color:color-mix(in_srgb,var(--muted-foreground)_80%,transparent)]">
+                    Updated {format(template.updatedAt, "MMM d, yyyy")}
+                  </p>
+                  <p className="text-xs text-[var(--muted-foreground)]">{mappingPreview}</p>
                 </div>
               );
             })}
@@ -106,6 +118,19 @@ export default async function SettingsPage() {
         categories={categoryOptions}
         accounts={accountOptions}
       />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Danger zone</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 text-sm text-[var(--muted-foreground)]">
+          <p>
+            Remove every transaction you have recorded. This action can&rsquo;t be undone and may
+            impact reports, budgets, and account balances.
+          </p>
+          <ClearTransactionsButton />
+        </CardContent>
+      </Card>
     </div>
   );
 }

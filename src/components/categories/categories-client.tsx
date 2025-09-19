@@ -216,7 +216,7 @@ export function CategoriesClient({ initialCategories }: { initialCategories: Cat
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="text-red-600 hover:text-red-700"
+                        className="text-red-600 hover:text-red-700 dark:text-rose-300 dark:hover:text-rose-200"
                         onClick={() => handleDelete(category.id)}
                       >
                         Delete

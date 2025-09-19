@@ -11,7 +11,15 @@ export function Table({ className, ...props }: HTMLAttributes<HTMLTableElement>)
 }
 
 export function TableHead({ className, ...props }: HTMLAttributes<HTMLTableSectionElement>) {
-  return <thead className={cn("bg-[var(--secondary)] text-[var(--muted-foreground)]", className)} {...props} />;
+  return (
+    <thead
+      className={cn(
+        "bg-[var(--secondary)] text-[var(--muted-foreground)] backdrop-blur-sm",
+        className
+      )}
+      {...props}
+    />
+  );
 }
 
 export function TableBody({ className, ...props }: HTMLAttributes<HTMLTableSectionElement>) {
@@ -19,18 +27,34 @@ export function TableBody({ className, ...props }: HTMLAttributes<HTMLTableSecti
 }
 
 export function TableRow({ className, ...props }: HTMLAttributes<HTMLTableRowElement>) {
-  return <tr className={cn("hover:bg-[var(--accent)]", className)} {...props} />;
+  return (
+    <tr
+      className={cn(
+        "transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+        className
+      )}
+      {...props}
+    />
+  );
 }
 
 export function TableHeaderCell({ className, ...props }: HTMLAttributes<HTMLTableCellElement>) {
   return (
     <th
-      className={cn("px-4 py-3 font-medium text-xs uppercase tracking-wide", className)}
+      className={cn(
+        "px-4 py-3 text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)]",
+        className
+      )}
       {...props}
     />
   );
 }
 
 export function TableCell({ className, ...props }: HTMLAttributes<HTMLTableCellElement>) {
-  return <td className={cn("px-4 py-3", className)} {...props} />;
+  return (
+    <td
+      className={cn("px-4 py-3 align-middle text-[var(--card-foreground)]", className)}
+      {...props}
+    />
+  );
 }

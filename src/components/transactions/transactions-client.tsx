@@ -642,7 +642,13 @@ export function TransactionsClient({
                         <div className="font-medium text-[var(--foreground)]">{transaction.description}</div>
                       </TableCell>
                       <TableCell>{transaction.account.name}</TableCell>
-                    <TableCell className={isUncategorized ? "text-red-600 font-medium" : ""}>
+                    <TableCell
+                      className={
+                        isUncategorized
+                          ? "font-medium text-red-600 dark:text-rose-300"
+                          : ""
+                      }
+                    >
                       {categoriesLabel}
                     </TableCell>
                     <TableCell className="text-right font-semibold">
@@ -655,7 +661,7 @@ export function TransactionsClient({
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="text-red-600 hover:text-red-700"
+                        className="text-red-600 hover:text-red-700 dark:text-rose-300 dark:hover:text-rose-200"
                         onClick={() => handleDelete(transaction.id)}
                       >
                         Delete
@@ -751,7 +757,7 @@ export function TransactionsClient({
 
       {isTransactionDrawerOpen && (
         <div className="fixed inset-0 z-40 flex justify-end bg-black/40">
-          <div className="h-full w-full max-w-md overflow-y-auto bg-[var(--card)] p-6 shadow-2xl">
+          <div className="h-full w-full max-w-md overflow-y-auto border border-[var(--border)]/60 bg-[color:color-mix(in_srgb,var(--card)_92%,var(--background)_8%)] p-6 shadow-[0_24px_48px_-28px_rgba(15,23,42,0.55)] backdrop-blur">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-[var(--foreground)]">

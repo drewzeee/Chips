@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthenticatedUser, unauthorizedResponse } from "@/lib/auth-helpers";
 import { importPayloadSchema } from "@/lib/validators";
+import {
+  findBestTransferCandidate,
+  markTransactionsAsTransfer,
+  applyCategorizationRules,
+} from "../transactions/utils";
 
 function normalizeKey(date: Date, amount: number, description: string) {
   return `${date.toISOString().slice(0, 10)}|${amount}|${description.trim().toLowerCase()}`;
@@ -108,6 +113,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid categories supplied" }, { status: 400 });
   }
 
+  const createdTransactionIds: string[] = [];
+
   await prisma.$transaction(async (tx) => {
     for (const row of uniqueRows) {
       const transaction = await tx.transaction.create({
@@ -122,7 +129,12 @@ export async function POST(request: Request) {
           status: "CLEARED",
           pending: false,
         },
+        select: {
+          id: true,
+        },
       });
+
+      createdTransactionIds.push(transaction.id);
 
       if (row.categoryId) {
         await tx.transactionSplit.create({
@@ -155,6 +167,35 @@ export async function POST(request: Request) {
       });
     }
   });
+
+  for (const transactionId of createdTransactionIds) {
+    const transaction = await prisma.transaction.findUnique({
+      where: { id: transactionId },
+      include: {
+        account: true,
+      },
+    });
+
+    if (!transaction || transaction.userId !== user.id || !transaction.account) {
+      continue;
+    }
+
+    const transferMatch = await findBestTransferCandidate({
+      userId: user.id,
+      account: transaction.account,
+      transaction,
+      existingReference: transaction.reference,
+    });
+
+    if (transferMatch) {
+      await markTransactionsAsTransfer({
+        transactionA: transaction,
+        transactionB: transferMatch.transaction,
+      });
+    }
+
+    await applyCategorizationRules({ transactionId, userId: user.id });
+  }
 
   return NextResponse.json({
     imported: uniqueRows.length,

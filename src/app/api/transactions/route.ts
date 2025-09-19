@@ -193,3 +193,17 @@ export async function POST(request: Request) {
 
   return NextResponse.json(categorized ?? workingTransaction, { status: 201 });
 }
+
+export async function DELETE() {
+  const user = await getAuthenticatedUser();
+  if (!user?.id) {
+    return unauthorizedResponse();
+  }
+
+  await prisma.$transaction([
+    prisma.transactionSplit.deleteMany({ where: { userId: user.id } }),
+    prisma.transaction.deleteMany({ where: { userId: user.id } }),
+  ]);
+
+  return NextResponse.json({ success: true });
+}
