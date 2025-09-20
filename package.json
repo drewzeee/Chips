@@ -7,14 +7,16 @@
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
-    "db:init": "sqlite3 dev.db < prisma/init.sql"
+    "db:init": "prisma migrate deploy"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
     "@prisma/client": "^6.16.2",
+    "@types/jsonwebtoken": "^9.0.10",
     "bcryptjs": "^3.0.2",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "jsonwebtoken": "^9.0.2",
     "next": "15.5.3",
     "next-auth": "^4.24.11",
     "papaparse": "^5.5.3",

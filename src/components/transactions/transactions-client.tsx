@@ -21,7 +21,7 @@ const transactionFormSchema = z.object({
   description: z.string().min(1, "Description is required"),
   merchant: z.string().optional().nullable(),
   amount: z.string(),
-  type: z.enum(["INCOME", "EXPENSE"]),
+  type: z.enum(["INCOME", "EXPENSE", "TRANSFER"]),
   accountId: z.string().min(1, "Account is required"),
   status: z.enum(["PENDING", "CLEARED", "RECONCILED"]),
   categoryId: z.string().optional(),
@@ -49,10 +49,20 @@ const transferFormSchema = z.object({
 
 type TransferFormValues = z.infer<typeof transferFormSchema>;
 
+function formatCentsForInput(cents: number, preserveSign = false) {
+  const workingCents = preserveSign ? cents : Math.abs(cents);
+  const isNegative = workingCents < 0;
+  const absolute = Math.abs(workingCents);
+  const formatted = (absolute / 100)
+    .toFixed(2)
+    .replace(/\.00$/, "")
+    .replace(/(\.\d)0$/, "$1");
+  return isNegative ? `-${formatted}` : formatted;
+}
+
 export interface TransactionCategory {
   id: string;
   name: string;
-  parentId: string | null;
   type: "INCOME" | "EXPENSE" | "TRANSFER";
 }
 
@@ -84,6 +94,7 @@ export interface TransactionItem {
   account: TransactionAccount;
   memo: string | null;
   reference?: string | null;
+  importTag?: string | null;
   splits: TransactionSplitItem[];
 }
 
@@ -148,10 +159,25 @@ export function TransactionsClient({
   const [manualLoading, setManualLoading] = useState(false);
   const [manualError, setManualError] = useState<string | null>(null);
   const [manualSuccess, setManualSuccess] = useState<string | null>(null);
+  const [linkCounterpartId, setLinkCounterpartId] = useState("");
 
   const currentTransaction = selectedId
     ? transactions.find((transaction) => transaction.id === selectedId) ?? null
     : null;
+  const isTransferTransaction = Boolean(currentTransaction?.reference?.startsWith("transfer_"));
+
+  const transferCounterpart = useMemo(() => {
+    if (!isTransferTransaction || !currentTransaction?.reference) {
+      return null;
+    }
+
+    return (
+      transactions.find(
+        (transaction) =>
+          transaction.reference === currentTransaction.reference && transaction.id !== currentTransaction.id
+      ) ?? null
+    );
+  }, [isTransferTransaction, currentTransaction, transactions]);
 
   const form = useForm<TransactionFormValues>({
     resolver: zodResolver(transactionFormSchema),
@@ -209,6 +235,7 @@ export function TransactionsClient({
     setSelectedId(null);
     setFormError(null);
     replaceSplits([]);
+    setLinkCounterpartId("");
     form.reset({
       date: new Date().toISOString().slice(0, 10),
       description: "",
@@ -294,8 +321,15 @@ export function TransactionsClient({
 
   const handleEdit = (transaction: TransactionItem) => {
     setSelectedId(transaction.id);
+    const isTransfer = Boolean(transaction.reference?.startsWith("transfer_"));
     const isExpense = transaction.amount < 0;
-    const baseAmount = Math.abs(transaction.amount) / 100;
+    const baseAmount = formatCentsForInput(transaction.amount, isTransfer);
+    const counterpart = isTransfer
+      ? transactions.find(
+          (candidate) =>
+            candidate.reference === transaction.reference && candidate.id !== transaction.id
+        ) ?? null
+      : null;
     const primarySplit = transaction.splits.map((split) => ({
       categoryId: split.categoryId,
       amount: (Math.abs(split.amount) / 100).toString(),
@@ -306,34 +340,87 @@ export function TransactionsClient({
       date: transaction.date.slice(0, 10),
       description: transaction.description,
       merchant: transaction.merchant ?? "",
-      amount: baseAmount.toString(),
-      type: isExpense ? "EXPENSE" : "INCOME",
+      amount: baseAmount,
+      type: isTransfer ? "TRANSFER" : isExpense ? "EXPENSE" : "INCOME",
       accountId: transaction.accountId,
       status: transaction.status,
       categoryId: transaction.splits[0]?.categoryId ?? "",
       memo: transaction.memo ?? "",
       splits: primarySplit,
     });
+    replaceSplits(primarySplit);
+    setLinkCounterpartId(counterpart?.id ?? "");
 
     setIsTransactionDrawerOpen(true);
   };
 
+  const watchType = form.watch("type");
+
+  useEffect(() => {
+    if (watchType === "TRANSFER") {
+      form.setValue("categoryId", "");
+      replaceSplits([]);
+    } else {
+      setLinkCounterpartId("");
+    }
+  }, [watchType, form, replaceSplits]);
+
   const onSubmit = form.handleSubmit(async (values) => {
     try {
       setFormError(null);
-      const amountCents = parseAmountToCents(values.amount);
-      const signedAmount = values.type === "EXPENSE" ? -amountCents : amountCents;
+      const rawCents = parseAmountToCents(values.amount);
+      const absoluteCents = Math.abs(rawCents);
+      const trimmedCounterpartId = linkCounterpartId.trim();
 
-      let splitsPayload = (values.splits ?? []).filter((split) => split.categoryId);
-      if (splitsPayload.length === 0 && values.categoryId) {
+      const resolvedReference =
+        values.type === "TRANSFER"
+          ? currentTransaction?.reference ?? `transfer_manual_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+          : null;
+
+      let signedAmount: number;
+
+      if (values.type === "TRANSFER") {
+        if (absoluteCents === 0) {
+          setFormError("Transfer amount must not be zero");
+          return;
+        }
+        const inputTrimmed = values.amount.trim();
+        let sign = rawCents === 0 ? 0 : Math.sign(rawCents);
+
+        if (inputTrimmed.startsWith("-")) {
+          sign = -1;
+        } else if (inputTrimmed.startsWith("+")) {
+          sign = 1;
+        } else if (sign === 0 && selectedId && currentTransaction) {
+          sign = Math.sign(currentTransaction.amount) || -1;
+        } else if (selectedId && currentTransaction && rawCents >= 0) {
+          const currentSign = Math.sign(currentTransaction.amount);
+          if (currentSign !== 0) {
+            sign = currentSign;
+          }
+        }
+
+        if (sign === 0) {
+          sign = 1;
+        }
+        signedAmount = sign * absoluteCents;
+      } else {
+        signedAmount = values.type === "EXPENSE" ? -absoluteCents : absoluteCents;
+      }
+
+      let splitsPayload = values.type === "TRANSFER" ? [] : (values.splits ?? []).filter((split) => split.categoryId);
+      if (values.type !== "TRANSFER" && splitsPayload.length === 0 && values.categoryId) {
         splitsPayload = [{ categoryId: values.categoryId, amount: values.amount }];
       }
 
-      const preparedSplits = splitsPayload.map((split) => ({
-        categoryId: split.categoryId,
-        amount:
-          (values.type === "EXPENSE" ? -1 : 1) * parseAmountToCents(split.amount || "0"),
-      }));
+      const preparedSplits = splitsPayload.map((split) => {
+        const splitCents = parseAmountToCents(split.amount || "0");
+        const normalizedSplit = values.type === "EXPENSE" ? -Math.abs(splitCents) : Math.abs(splitCents);
+        return {
+          categoryId: split.categoryId,
+          amount: normalizedSplit,
+        };
+      });
 
       if (preparedSplits.length > 0) {
         const totalSplit = preparedSplits.reduce((sum, split) => sum + split.amount, 0);
@@ -351,6 +438,7 @@ export function TransactionsClient({
         merchant: values.merchant || null,
         memo: values.memo || null,
         status: values.status,
+        reference: resolvedReference,
         splits: preparedSplits,
       };
 
@@ -367,13 +455,74 @@ export function TransactionsClient({
         throw new Error(json?.error ?? "Unable to save transaction");
       }
 
-      const transaction: TransactionItem = await response.json();
-      setTransactions((prev) => {
-        if (selectedId) {
-          return prev.map((item) => (item.id === transaction.id ? transaction : item));
+      const savedTransaction: TransactionItem = await response.json();
+
+      let nextTransactions: TransactionItem[];
+      if (selectedId) {
+        nextTransactions = transactions.map((item) =>
+          item.id === savedTransaction.id ? savedTransaction : item
+        );
+      } else {
+        const combined = [savedTransaction, ...transactions];
+        const seen = new Set<string>();
+        const deduped: TransactionItem[] = [];
+        for (const entry of combined) {
+          if (!seen.has(entry.id)) {
+            seen.add(entry.id);
+            deduped.push(entry);
+          }
         }
-        return [transaction, ...prev].slice(0, 200);
-      });
+        nextTransactions = deduped.slice(0, 200);
+      }
+
+      setTransactions(nextTransactions);
+
+      if (values.type === "TRANSFER" && trimmedCounterpartId) {
+        if (trimmedCounterpartId === savedTransaction.id) {
+          setFormError("Cannot link a transfer to itself");
+          return;
+        }
+
+        const linkResponse = await fetch("/api/transactions/mark-transfer", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            transactionId: savedTransaction.id,
+            counterpartTransactionId: trimmedCounterpartId,
+          }),
+        });
+
+        if (!linkResponse.ok) {
+          const json = await linkResponse.json().catch(() => null);
+          setFormError(json?.error ?? "Unable to link transfer");
+          return;
+        }
+
+        const linkPayload = await linkResponse.json();
+        const updatedPrimary: TransactionItem | undefined = linkPayload.primary;
+        const updatedCounterpart: TransactionItem | undefined = linkPayload.counterpart;
+
+        setTransactions((prev) => {
+          let updated = prev.map((item) => {
+            if (updatedPrimary && item.id === updatedPrimary.id) {
+              return updatedPrimary;
+            }
+            if (updatedCounterpart && item.id === updatedCounterpart.id) {
+              return updatedCounterpart;
+            }
+            return item;
+          });
+
+          if (updatedCounterpart && !updated.some((item) => item.id === updatedCounterpart.id)) {
+            updated = [updatedCounterpart, ...updated];
+          }
+
+          return updated.slice(0, 200);
+        });
+      }
+
       closeTransactionDrawer();
     } catch (error) {
       setFormError(error instanceof Error ? error.message : "Unexpected error");
@@ -509,12 +658,32 @@ export function TransactionsClient({
   const categoryOptions = useMemo(() => {
     return categories.map((category) => ({
       id: category.id,
-      label: category.parentId
-        ? `${categories.find((item) => item.id === category.parentId)?.name ?? ""} › ${category.name}`
-        : category.name,
+      label: category.name,
       type: category.type,
     }));
   }, [categories]);
+
+  const filteredTotals = useMemo(() => {
+    let income = 0;
+    let expenses = 0;
+    let total = 0;
+    for (const transaction of transactions) {
+      total += transaction.amount;
+      const isTransfer = transaction.reference?.startsWith("transfer_") ?? false;
+      if (isTransfer) continue;
+      if (transaction.amount >= 0) {
+        income += transaction.amount;
+      } else {
+        expenses += transaction.amount;
+      }
+    }
+    return {
+      count: transactions.length,
+      total,
+      income,
+      expenses,
+    };
+  }, [transactions]);
 
   return (
     <div className="space-y-6">
@@ -595,6 +764,25 @@ export function TransactionsClient({
                   Uncategorized only
                 </Label>
               </div>
+            </div>
+          </div>
+
+          <div className="mt-6 grid gap-3 rounded-lg border border-[var(--border)] bg-[color:color-mix(in_srgb,var(--card)_92%,transparent)] p-4 text-sm text-[var(--foreground)] sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Visible transactions</p>
+              <p className="mt-1 text-lg font-semibold">{filteredTotals.count}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Net total</p>
+              <p className="mt-1 text-lg font-semibold">{formatCurrency(filteredTotals.total)}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Income (visible)</p>
+              <p className="mt-1 text-lg font-semibold">{formatCurrency(filteredTotals.income)}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Expenses (visible)</p>
+              <p className="mt-1 text-lg font-semibold">{formatCurrency(Math.abs(filteredTotals.expenses))}</p>
             </div>
           </div>
         </CardContent>
@@ -772,6 +960,52 @@ export function TransactionsClient({
               </Button>
             </div>
 
+            {currentTransaction && (
+              <div className="mt-4 space-y-3 text-xs text-[var(--muted-foreground)]">
+                <div className="rounded-lg border border-dashed border-[var(--border)]/70 bg-[color:color-mix(in_srgb,var(--card)_85%,transparent)] p-3">
+                  <span className="font-medium uppercase tracking-wide">Transaction ID</span>
+                  <code className="mt-1 block overflow-hidden text-ellipsis whitespace-nowrap rounded bg-[var(--muted)] px-2 py-1 font-mono text-sm text-[var(--foreground)]">
+                    {currentTransaction.id}
+                  </code>
+                </div>
+                {currentTransaction.importTag && (
+                  <div className="rounded-lg border border-dashed border-[var(--border)]/70 bg-[color:color-mix(in_srgb,var(--card)_85%,transparent)] p-3">
+                    <span className="font-medium uppercase tracking-wide">Import tag</span>
+                    <code className="mt-1 block overflow-hidden text-ellipsis whitespace-nowrap rounded bg-[var(--muted)] px-2 py-1 font-mono text-sm text-[var(--foreground)]">
+                      {currentTransaction.importTag}
+                    </code>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {isTransferTransaction && (
+              <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+                <div className="flex items-center gap-2">
+                  <Badge tone="success">Transfer</Badge>
+                  <span className="font-semibold">Linked transaction</span>
+                </div>
+                <p className="mt-2 text-emerald-800">
+                  This entry is part of a matched transfer between accounts. Updates here keep both sides in sync.
+                </p>
+                {transferCounterpart ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="mt-3 text-emerald-700 hover:text-emerald-900"
+                    onClick={() => handleEdit(transferCounterpart)}
+                  >
+                    Open linked transaction
+                  </Button>
+                ) : (
+                  <p className="mt-3 text-xs text-emerald-700">
+                    The linked transfer falls outside the current list but remains connected for reporting.
+                  </p>
+                )}
+              </div>
+            )}
+
             <form className="mt-6 space-y-4" onSubmit={onSubmit}>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
@@ -811,6 +1045,7 @@ export function TransactionsClient({
                   <Select id="drawer-type" {...form.register("type")}>
                     <option value="EXPENSE">Expense</option>
                     <option value="INCOME">Income</option>
+                    <option value="TRANSFER">Transfer</option>
                   </Select>
                 </div>
               </div>
@@ -825,7 +1060,7 @@ export function TransactionsClient({
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="drawer-category">Primary category</Label>
-                  <Select id="drawer-category" {...form.register("categoryId")}>
+                  <Select id="drawer-category" disabled={watchType === "TRANSFER"} {...form.register("categoryId")}>
                     <option value="">Uncategorized</option>
                     {categoryOptions.map((option) => (
                       <option key={option.id} value={option.id}>
@@ -833,13 +1068,38 @@ export function TransactionsClient({
                       </option>
                     ))}
                   </Select>
+                  {watchType === "TRANSFER" && (
+                    <p className="text-xs text-[var(--muted-foreground)]">Transfers do not use categories.</p>
+                  )}
                 </div>
               </div>
+
+              {watchType === "TRANSFER" && (
+                <div className="space-y-2">
+                  <Label htmlFor="drawer-transfer-link">Linked transaction ID</Label>
+                  <Input
+                    id="drawer-transfer-link"
+                    value={linkCounterpartId}
+                    onChange={(event) => setLinkCounterpartId(event.target.value)}
+                    placeholder="Optional — enter the matching transaction ID"
+                  />
+                  <p className="text-xs text-[var(--muted-foreground)]">
+                    Linking two transactions treats both sides as a single transfer so they are excluded from income and
+                    expense totals.
+                  </p>
+                </div>
+              )}
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label>Splits</Label>
-                  <Button type="button" variant="ghost" size="sm" onClick={() => appendSplit({ categoryId: "", amount: "" })}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={watchType === "TRANSFER"}
+                    onClick={() => appendSplit({ categoryId: "", amount: "" })}
+                  >
                     Add split
                   </Button>
                 </div>
@@ -850,7 +1110,10 @@ export function TransactionsClient({
                 )}
                 {splitFields.map((field, index) => (
                   <div key={field.id} className="grid gap-2 sm:grid-cols-2">
-                    <Select {...form.register(`splits.${index}.categoryId` as const)}>
+                    <Select
+                      disabled={watchType === "TRANSFER"}
+                      {...form.register(`splits.${index}.categoryId` as const)}
+                    >
                       <option value="">Select category</option>
                       {categoryOptions.map((option) => (
                         <option key={option.id} value={option.id}>
@@ -859,8 +1122,18 @@ export function TransactionsClient({
                       ))}
                     </Select>
                     <div className="flex items-center gap-2">
-                      <Input {...form.register(`splits.${index}.amount` as const)} placeholder="Amount" />
-                      <Button type="button" variant="ghost" size="sm" onClick={() => removeSplit(index)}>
+                      <Input
+                        disabled={watchType === "TRANSFER"}
+                        {...form.register(`splits.${index}.amount` as const)}
+                        placeholder="Amount"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={watchType === "TRANSFER"}
+                        onClick={() => removeSplit(index)}
+                      >
                         Remove
                       </Button>
                     </div>

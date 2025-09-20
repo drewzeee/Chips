@@ -45,8 +45,8 @@ export async function GET(request: Request) {
       ...(filters.search
         ? {
             OR: [
-              { description: { contains: filters.search } },
-              { merchant: { contains: filters.search } },
+              { description: { contains: filters.search, mode: "insensitive" } },
+              { merchant: { contains: filters.search, mode: "insensitive" } },
             ],
           }
         : {}),
@@ -137,6 +137,8 @@ export async function POST(request: Request) {
       status: parsed.data.status,
       merchant: parsed.data.merchant ?? null,
       pending: parsed.data.status === "PENDING",
+      reference: parsed.data.reference ?? null,
+      importTag: parsed.data.importTag ?? null,
       splits:
         splits.length > 0
           ? {
@@ -194,10 +196,33 @@ export async function POST(request: Request) {
   return NextResponse.json(categorized ?? workingTransaction, { status: 201 });
 }
 
-export async function DELETE() {
+export async function DELETE(request: Request) {
   const user = await getAuthenticatedUser();
   if (!user?.id) {
     return unauthorizedResponse();
+  }
+
+  const { searchParams } = new URL(request.url);
+  const importTag = searchParams.get("importTag");
+
+  if (importTag) {
+    const transactions = await prisma.transaction.findMany({
+      where: { userId: user.id, importTag },
+      select: { id: true },
+    });
+
+    if (transactions.length === 0) {
+      return NextResponse.json({ deleted: 0, importTag });
+    }
+
+    const transactionIds = transactions.map((transaction) => transaction.id);
+
+    await prisma.$transaction([
+      prisma.transactionSplit.deleteMany({ where: { transactionId: { in: transactionIds }, userId: user.id } }),
+      prisma.transaction.deleteMany({ where: { id: { in: transactionIds }, userId: user.id } }),
+    ]);
+
+    return NextResponse.json({ deleted: transactions.length, importTag });
   }
 
   await prisma.$transaction([

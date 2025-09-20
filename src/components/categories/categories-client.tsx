@@ -31,7 +31,6 @@ export interface CategoryItem {
   type: "INCOME" | "EXPENSE" | "TRANSFER";
   color: string | null;
   icon: string | null;
-  parentId: string | null;
   budgetLimit: number | null;
   createdAt: string;
 }
@@ -50,7 +49,6 @@ export function CategoriesClient({ initialCategories }: { initialCategories: Cat
       type: "EXPENSE",
       color: "",
       icon: "",
-      parentId: "",
       budgetLimit: "",
     },
   });
@@ -61,15 +59,9 @@ export function CategoriesClient({ initialCategories }: { initialCategories: Cat
       : categories.filter((category) => category.type === filterType);
   }, [categories, filterType]);
 
-  const watchType = form.watch("type");
-
-  const parentOptions = useMemo(() => {
-    return categories.filter((category) => category.type === watchType);
-  }, [categories, watchType]);
-
   const resetForm = () => {
     setSelectedId(null);
-    form.reset({ name: "", type: "EXPENSE", color: "", icon: "", parentId: "", budgetLimit: "" });
+    form.reset({ name: "", type: "EXPENSE", color: "", icon: "", budgetLimit: "" });
   };
 
   const handleEdit = (category: CategoryItem) => {
@@ -79,7 +71,6 @@ export function CategoriesClient({ initialCategories }: { initialCategories: Cat
       type: category.type,
       color: category.color ?? "",
       icon: category.icon ?? "",
-      parentId: category.parentId ?? "",
       budgetLimit: category.budgetLimit ? (category.budgetLimit / 100).toString() : "",
     });
   };
@@ -93,7 +84,6 @@ export function CategoriesClient({ initialCategories }: { initialCategories: Cat
       type: values.type,
       color: values.color || null,
       icon: values.icon || null,
-      parentId: values.parentId || null,
       budgetLimit: values.budgetLimit ? parseAmountToCents(values.budgetLimit) : null,
     };
 
@@ -185,7 +175,6 @@ export function CategoriesClient({ initialCategories }: { initialCategories: Cat
                 <TableRow>
                   <TableHeaderCell>Name</TableHeaderCell>
                   <TableHeaderCell>Type</TableHeaderCell>
-                  <TableHeaderCell>Parent</TableHeaderCell>
                   <TableHeaderCell className="text-right">Budget</TableHeaderCell>
                   <TableHeaderCell></TableHeaderCell>
                 </TableRow>
@@ -201,11 +190,6 @@ export function CategoriesClient({ initialCategories }: { initialCategories: Cat
                       {category.name}
                     </TableCell>
                     <TableCell>{category.type}</TableCell>
-                    <TableCell>
-                      {category.parentId
-                        ? categories.find((item) => item.id === category.parentId)?.name ?? ""
-                        : "—"}
-                    </TableCell>
                     <TableCell className="text-right">
                       {category.budgetLimit ? formatCurrency(category.budgetLimit) : "—"}
                     </TableCell>
@@ -263,19 +247,6 @@ export function CategoriesClient({ initialCategories }: { initialCategories: Cat
                   <Label htmlFor="icon">Icon</Label>
                   <Input id="icon" placeholder="Optional emoji or text" {...form.register("icon")} />
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="parentId">Parent category</Label>
-                <Select id="parentId" {...form.register("parentId")}>
-                  <option value="">None</option>
-                  {parentOptions
-                    .filter((category) => category.id !== selectedId)
-                    .map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.name}
-                      </option>
-                    ))}
-                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="budgetLimit">Budget (per month)</Label>

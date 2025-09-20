@@ -6,7 +6,7 @@ A self-hosted personal finance portal that centralises budgeting, transaction ma
 
 - **Next.js 15** with the App Router
 - **TypeScript** and **Tailwind CSS 4** for the UI
-- **Prisma ORM** with SQLite for persistence
+- **Prisma ORM** with Supabase (PostgreSQL) for persistence
 - **Next-Auth** credentials provider for secure email / password authentication
 - **Recharts** for data visualisations
 - **Papa Parse** for client-side CSV parsing
@@ -30,7 +30,7 @@ A self-hosted personal finance portal that centralises budgeting, transaction ma
 
 - Node.js 20+
 - npm (installed with Node.js)
-- `sqlite3` CLI (used by the helper script to initialise the database schema)
+- Access to a Supabase-compatible PostgreSQL instance (the project defaults to `http://192.168.50.101:8000`)
 
 ## Getting Started
 
@@ -40,9 +40,9 @@ npm install
 
 # Copy the environment template and update it
 cp .env.example .env
-# Set NEXTAUTH_SECRET to any strong random value.
+# Set NEXTAUTH_SECRET to any strong random value and adjust the Supabase credentials if needed.
 
-# Generate the database schema (creates dev.db)
+# Apply migrations to Supabase
 npm run db:init
 
 # Generate the Prisma client
@@ -63,11 +63,11 @@ src/
     (protected)/      Dashboard, accounts, categories, transactions, reports, settings
     api/              REST endpoints for auth, accounts, categories, transactions, import
   components/         UI primitives and feature modules
-  lib/                Prisma client, Next-Auth config, validators, utilities
+  lib/                Prisma client, dashboard helpers, Next-Auth config, validators, utilities
   types/              Type augmentations (Next-Auth)
 prisma/
   schema.prisma       Prisma data model
-  init.sql            SQLite schema bootstrap used by `npm run db:init`
+  migrations/         Prisma migration history
 ```
 
 ## Auto-Categorisation Rules
@@ -83,7 +83,8 @@ prisma/
 
 | Variable         | Description                                      |
 | ---------------- | ------------------------------------------------ |
-| `DATABASE_URL`   | Prisma connection string (default `file:./dev.db`) |
+| `DATABASE_URL`   | Prisma connection string (defaults to Supabase Postgres) |
+| `DIRECT_DATABASE_URL` | Optional direct Postgres connection (used for migrations) |
 | `NEXTAUTH_SECRET`| Random string used to sign Next-Auth JWTs         |
 | `NEXTAUTH_URL`   | Base URL for Next-Auth callbacks (e.g. localhost) |
 
@@ -93,7 +94,7 @@ prisma/
 - `npm run build` – build for production
 - `npm run start` – start the production server
 - `npm run lint` – run ESLint
-- `npm run db:init` – create/refresh the SQLite schema from `prisma/init.sql`
+- `npm run db:init` – run Prisma migrations against the configured Supabase instance
 
 ## Notes & Next Steps
 

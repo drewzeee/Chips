@@ -4,8 +4,10 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider     = "postgresql"
+  url          = env("DATABASE_URL")
+  directUrl    = env("DIRECT_DATABASE_URL")
+  relationMode = "foreignKeys"
 }
 
 enum AccountType {
@@ -53,6 +55,8 @@ model User {
   transactionSplits TransactionSplit[] @relation("UserSplits")
   budgetPeriods     BudgetPeriod[]
   rules             TransactionRule[]
+  balanceSnapshots  AccountBalanceSnapshot[]
+  externalBalanceSnapshots ExternalBalanceSnapshot[]
 }
 
 model Account {
@@ -101,6 +105,7 @@ model FinancialAccount {
   creditLimit    Int?
   status         AccountStatus  @default(ACTIVE)
   institution    String?
+  externalAccountId String?
   notes          String?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
@@ -108,6 +113,7 @@ model FinancialAccount {
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions Transaction[]
   rules        TransactionRule[]
+  snapshots    AccountBalanceSnapshot[]
 }
 
 model Category {
@@ -155,6 +161,7 @@ model Transaction {
   status             TransactionStatus @default(PENDING)
   reference          String?
   merchant           String?
+  importTag          String?
   pending            Boolean           @default(false)
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
@@ -165,6 +172,22 @@ model Transaction {
 
   @@index([userId, accountId, date])
   @@index([userId, date])
+}
+
+model AccountBalanceSnapshot {
+  id        String   @id @default(cuid())
+  userId    String
+  accountId String
+  balance   Int
+  asOf      DateTime
+  source    String?
+  createdAt DateTime @default(now())
+
+  user    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account FinancialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, asOf])
+  @@index([userId, asOf])
 }
 
 model TransactionSplit {
@@ -213,4 +236,20 @@ model TransactionRule {
   account  FinancialAccount? @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@index([userId, priority])
+}
+
+model ExternalBalanceSnapshot {
+  id        String   @id @default(cuid())
+  userId    String
+  source    String   // 'gemini', 'coinbase', etc.
+  currency  String
+  amount    Decimal
+  usdValue  Decimal
+  asOf      DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, source, currency, asOf])
+  @@index([userId, asOf])
 }

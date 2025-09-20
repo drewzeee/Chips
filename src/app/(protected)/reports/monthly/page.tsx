@@ -4,6 +4,7 @@ import { getAuthSession } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { CashflowChart } from "@/components/reports/cashflow-chart";
+import { CategoryTrendChart, type CategoryTrendSeries, type CategoryTrendMonth } from "@/components/reports/category-trend-chart";
 import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 import { MonthSelector } from "@/components/reports/month-selector";
@@ -16,6 +17,7 @@ type TransactionWithSplits = {
   splits: {
     amount: number;
     category: {
+      id: string;
       name: string;
       type: "INCOME" | "EXPENSE" | "TRANSFER";
     } | null;
@@ -177,6 +179,50 @@ export default async function MonthlyReportPage({
     return { value, label: format(date, "MMMM yyyy") };
   });
 
+  const monthTimeline: CategoryTrendMonth[] = Array.from({ length: 6 }).map((_, idx) => {
+    const date = subMonths(monthStart, 5 - idx);
+    return {
+      key: format(date, "yyyy-MM"),
+      label: format(date, "MMM"),
+    };
+  });
+
+  const categoryTrendMap = new Map<
+    string,
+    {
+      id: string;
+      name: string;
+      type: "INCOME" | "EXPENSE";
+      monthly: Map<string, number>;
+      total: number;
+    }
+  >();
+
+  function recordCategoryTrend(
+    id: string | null,
+    name: string | null,
+    type: "INCOME" | "EXPENSE",
+    monthKey: string,
+    amount: number
+  ) {
+    const resolvedId = id ?? `${type}-uncategorized`;
+    const resolvedName =
+      name ?? (type === "EXPENSE" ? "Uncategorized (Expense)" : "Uncategorized (Income)");
+    const key = `${type}:${resolvedId}`;
+    const entry =
+      categoryTrendMap.get(key) ?? {
+        id: resolvedId,
+        name: resolvedName,
+        type,
+        monthly: new Map<string, number>(),
+        total: 0,
+      };
+
+    entry.total += amount;
+    entry.monthly.set(monthKey, (entry.monthly.get(monthKey) ?? 0) + amount);
+    categoryTrendMap.set(key, entry);
+  }
+
   const trendMap = new Map<string, { income: number; expenses: number }>();
   for (const transaction of trendTransactions as TransactionWithSplits[]) {
     if (transaction.reference && transaction.reference.startsWith("transfer_")) {
@@ -188,30 +234,69 @@ export default async function MonthlyReportPage({
       for (const segment of transaction.splits) {
         if (segment.category?.type === "EXPENSE") {
           entry.expenses += Math.abs(segment.amount);
+          recordCategoryTrend(
+            segment.category?.id ?? null,
+            segment.category?.name ?? null,
+            "EXPENSE",
+            key,
+            Math.abs(segment.amount)
+          );
         } else if (segment.category?.type === "INCOME") {
           entry.income += segment.amount;
+          recordCategoryTrend(
+            segment.category?.id ?? null,
+            segment.category?.name ?? null,
+            "INCOME",
+            key,
+            Math.abs(segment.amount)
+          );
         }
       }
     } else {
       if (transaction.amount < 0) {
         entry.expenses += Math.abs(transaction.amount);
+        recordCategoryTrend(
+          null,
+          null,
+          "EXPENSE",
+          key,
+          Math.abs(transaction.amount)
+        );
       } else {
         entry.income += transaction.amount;
+        recordCategoryTrend(
+          null,
+          null,
+          "INCOME",
+          key,
+          Math.abs(transaction.amount)
+        );
       }
     }
     trendMap.set(key, entry);
   }
 
-  const chartData = Array.from({ length: 6 }).map((_, idx) => {
-    const date = subMonths(monthStart, 5 - idx);
-    const key = format(date, "yyyy-MM");
+  const chartData = monthTimeline.map(({ key, label }) => {
     const entry = trendMap.get(key) ?? { income: 0, expenses: 0 };
     return {
-      label: format(date, "MMM"),
+      label,
       income: entry.income,
       expenses: entry.expenses,
     };
   });
+
+  const categoryTrendSeries: CategoryTrendSeries[] = Array.from(categoryTrendMap.values())
+    .map((entry) => ({
+      id: entry.id,
+      name: entry.name,
+      type: entry.type,
+      total: entry.total,
+      data: monthTimeline.map(({ key }) => ({
+        month: key,
+        value: entry.monthly.get(key) ?? 0,
+      })),
+    }))
+    .filter((entry) => entry.total > 0);
 
   return (
     <div className="space-y-6">
@@ -278,6 +363,17 @@ export default async function MonthlyReportPage({
           <CashflowChart data={chartData} />
         </CardContent>
       </Card>
+
+      {categoryTrendSeries.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Category trends</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <CategoryTrendChart months={monthTimeline} series={categoryTrendSeries} />
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>

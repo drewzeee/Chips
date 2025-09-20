@@ -44,8 +44,14 @@ export async function POST(request: Request) {
     return unauthorizedResponse();
   }
 
-  if (transactionA.accountId === transactionB.accountId) {
-    return NextResponse.json({ error: "Transfers must span two different accounts" }, { status: 400 });
+  if ((transactionA.amount >= 0 && transactionB.amount >= 0) || (transactionA.amount <= 0 && transactionB.amount <= 0)) {
+    return NextResponse.json({ error: "Transfers must have opposite cash flow directions" }, { status: 400 });
+  }
+
+  const amountsMatch = Math.abs(transactionA.amount) === Math.abs(transactionB.amount);
+
+  if (!amountsMatch) {
+    return NextResponse.json({ error: "Transfer amounts must match" }, { status: 400 });
   }
 
   await markTransactionsAsTransfer({

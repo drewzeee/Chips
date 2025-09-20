@@ -22,6 +22,9 @@ import {
   type NetWorthRangeValue,
 } from "@/lib/dashboard";
 import { NetWorthRangeSelector } from "@/components/dashboard/net-worth-range-selector";
+import { GeminiBalances } from "@/components/dashboard/gemini-balances";
+import { KrakenBalances } from "@/components/dashboard/kraken-balances";
+import { TotalNetWorth } from "@/components/dashboard/total-net-worth";
 
 function sumValues(values: number[]) {
   return values.reduce((total, value) => total + value, 0);
@@ -334,10 +337,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             <CardTitle>Net Worth</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-semibold text-[var(--card-foreground)]">{formatCurrency(totalNetWorth)}</p>
-            <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-              Across {accountBalances.length} accounts
-            </p>
+            <TotalNetWorth
+              traditionalNetWorth={totalNetWorth}
+              accountCount={accountBalances.length}
+            />
           </CardContent>
         </Card>
 
@@ -447,6 +450,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             ))}
           </CardContent>
         </Card>
+
+        <GeminiBalances />
+
+        <KrakenBalances />
       </div>
 
       <Card>

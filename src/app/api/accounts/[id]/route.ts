@@ -41,6 +41,7 @@ export async function PUT(
       creditLimit: parsed.data.creditLimit ?? null,
       status: parsed.data.status,
       institution: parsed.data.institution ?? null,
+      externalAccountId: parsed.data.externalAccountId ?? null,
       notes: parsed.data.notes ?? null,
     },
   });

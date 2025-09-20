@@ -72,6 +72,8 @@ export async function PUT(
         status: parsed.data.status,
         merchant: parsed.data.merchant ?? null,
         pending: parsed.data.status === "PENDING",
+        reference: parsed.data.reference ?? null,
+        importTag: parsed.data.importTag ?? existing.importTag,
       },
     });
 

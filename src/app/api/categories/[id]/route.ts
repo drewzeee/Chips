@@ -28,16 +28,6 @@ export async function PUT(
     );
   }
 
-  if (parsed.data.parentId) {
-    if (parsed.data.parentId === id) {
-      return NextResponse.json({ error: "Category cannot be its own parent" }, { status: 400 });
-    }
-    const parent = await prisma.category.findUnique({ where: { id: parsed.data.parentId } });
-    if (!parent || parent.userId !== user.id) {
-      return NextResponse.json({ error: "Invalid parent category" }, { status: 400 });
-    }
-  }
-
   const updated = await prisma.category.update({
     where: { id },
     data: {
@@ -45,7 +35,7 @@ export async function PUT(
       type: parsed.data.type,
       color: parsed.data.color ?? null,
       icon: parsed.data.icon ?? null,
-      parentId: parsed.data.parentId ?? null,
+      parentId: null,
       budgetLimit: parsed.data.budgetLimit ?? null,
     },
   });

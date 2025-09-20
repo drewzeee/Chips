@@ -29,6 +29,7 @@ export const accountSchema = z.object({
   creditLimit: z.coerce.number().int().nullable(),
   status: z.enum(["ACTIVE", "CLOSED", "HIDDEN"]),
   institution: z.string().optional().nullable(),
+  externalAccountId: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
 });
 
@@ -38,7 +39,6 @@ export const categorySchema = z.object({
   type: z.enum(["INCOME", "EXPENSE", "TRANSFER"]),
   color: z.string().optional().nullable(),
   icon: z.string().optional().nullable(),
-  parentId: z.string().optional().nullable(),
   budgetLimit: z.coerce.number().int().nullable(),
 });
 
@@ -51,6 +51,8 @@ export const transactionSchema = z.object({
   merchant: z.string().optional().nullable(),
   memo: z.string().optional().nullable(),
   status: z.enum(["PENDING", "CLEARED", "RECONCILED"]),
+  reference: z.string().optional().nullable(),
+  importTag: z.string().optional().nullable(),
   splits: z
     .array(
       z.object({
