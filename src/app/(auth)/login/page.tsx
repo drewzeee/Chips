@@ -49,8 +49,10 @@ function LoginFormContent() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Sign in</h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <h1 className="text-3xl font-semibold tracking-tight text-[var(--card-foreground)]">
+          Sign in
+        </h1>
+        <p className="mt-2 text-sm text-[var(--muted-foreground)]">
           Manage your finances securely in your self-hosted portal.
         </p>
       </div>
@@ -60,7 +62,7 @@ function LoginFormContent() {
           <Label htmlFor="email">Email</Label>
           <Input id="email" type="email" autoComplete="email" {...register("email")} />
           {errors.email && (
-            <p className="text-sm text-red-600">{errors.email.message}</p>
+            <p className="text-sm text-[var(--destructive)]">{errors.email.message}</p>
           )}
         </div>
 
@@ -73,20 +75,23 @@ function LoginFormContent() {
             {...register("password")}
           />
           {errors.password && (
-            <p className="text-sm text-red-600">{errors.password.message}</p>
+            <p className="text-sm text-[var(--destructive)]">{errors.password.message}</p>
           )}
         </div>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-[var(--destructive)]">{error}</p>}
 
         <Button type="submit" className="w-full" disabled={isSubmitting}>
           {isSubmitting ? "Signing in..." : "Sign in"}
         </Button>
       </form>
 
-      <p className="text-sm text-gray-600">
+      <p className="text-sm text-[var(--muted-foreground)]">
         Don&apos;t have an account?{" "}
-        <Link href="/register" className="font-medium text-blue-600 hover:underline">
+        <Link
+          href="/register"
+          className="font-semibold text-[var(--primary)] underline-offset-4 transition hover:underline"
+        >
           Create one
         </Link>
       </p>

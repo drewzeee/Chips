@@ -58,8 +58,10 @@ export default function RegisterPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Create account</h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <h1 className="text-3xl font-semibold tracking-tight text-[var(--card-foreground)]">
+          Create account
+        </h1>
+        <p className="mt-2 text-sm text-[var(--muted-foreground)]">
           Set up your personal finance workspace in minutes.
         </p>
       </div>
@@ -68,14 +70,16 @@ export default function RegisterPage() {
         <div className="space-y-2">
           <Label htmlFor="name">Name</Label>
           <Input id="name" autoComplete="name" {...register("name")} />
-          {errors.name && <p className="text-sm text-red-600">{errors.name.message}</p>}
+          {errors.name && (
+            <p className="text-sm text-[var(--destructive)]">{errors.name.message}</p>
+          )}
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <Input id="email" type="email" autoComplete="email" {...register("email")} />
           {errors.email && (
-            <p className="text-sm text-red-600">{errors.email.message}</p>
+            <p className="text-sm text-[var(--destructive)]">{errors.email.message}</p>
           )}
         </div>
 
@@ -88,22 +92,25 @@ export default function RegisterPage() {
             {...register("password")}
           />
           {errors.password && (
-            <p className="text-sm text-red-600">{errors.password.message}</p>
+            <p className="text-sm text-[var(--destructive)]">{errors.password.message}</p>
           )}
-          <p className="text-xs text-gray-500">Use 8 or more characters.</p>
+          <p className="text-xs text-[var(--muted-foreground)]">Use 8 or more characters.</p>
         </div>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        {success && <p className="text-sm text-green-600">{success}</p>}
+        {error && <p className="text-sm text-[var(--destructive)]">{error}</p>}
+        {success && <p className="text-sm text-emerald-400">{success}</p>}
 
         <Button type="submit" className="w-full" disabled={isSubmitting}>
           {isSubmitting ? "Creating..." : "Create account"}
         </Button>
       </form>
 
-      <p className="text-sm text-gray-600">
+      <p className="text-sm text-[var(--muted-foreground)]">
         Have an account?{" "}
-        <Link href="/login" className="font-medium text-blue-600 hover:underline">
+        <Link
+          href="/login"
+          className="font-semibold text-[var(--primary)] underline-offset-4 transition hover:underline"
+        >
           Sign in
         </Link>
       </p>

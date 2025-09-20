@@ -13,7 +13,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
-import { AccountBalanceChart } from "./account-balance-chart";
 
 const formSchema = accountSchema.omit({ id: true }).extend({
   openingBalance: z.string(),
@@ -29,11 +28,9 @@ export type AccountWithBalance = {
   creditLimit: number | null;
   status: "ACTIVE" | "CLOSED" | "HIDDEN";
   institution: string | null;
-  externalAccountId: string | null;
   notes: string | null;
   createdAt: string;
   balance: number;
-  history: { asOf: string; balance: number; source: string | null }[];
 };
 
 const ACCOUNT_TYPES = [
@@ -69,11 +66,6 @@ export function AccountsClient({
     selectedId,
   ]);
 
-  const selectedHistory = useMemo(() => {
-    if (!selectedAccount) return [] as { asOf: string; balance: number; source: string | null }[];
-    return selectedAccount.history;
-  }, [selectedAccount]);
-
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -84,7 +76,6 @@ export function AccountsClient({
       creditLimit: "",
       status: "ACTIVE",
       institution: "",
-      externalAccountId: "",
       notes: "",
     },
   });
@@ -99,7 +90,6 @@ export function AccountsClient({
       creditLimit: "",
       status: "ACTIVE",
       institution: "",
-      externalAccountId: "",
       notes: "",
     });
   };
@@ -114,7 +104,6 @@ export function AccountsClient({
       creditLimit: account.creditLimit ? (account.creditLimit / 100).toString() : "",
       status: account.status,
       institution: account.institution ?? "",
-      externalAccountId: account.externalAccountId ?? "",
       notes: account.notes ?? "",
     });
   };
@@ -131,7 +120,6 @@ export function AccountsClient({
       creditLimit: values.creditLimit ? parseAmountToCents(values.creditLimit) : null,
       status: values.status,
       institution: values.institution || null,
-      externalAccountId: values.externalAccountId?.trim() ? values.externalAccountId.trim() : null,
       notes: values.notes || null,
     };
 
@@ -158,19 +146,11 @@ export function AccountsClient({
                   ...item,
                   ...account,
                   balance: account.openingBalance + (item.balance - item.openingBalance),
-                  history: item.history,
                 }
               : item
           );
         }
-        return [
-          ...prev,
-          {
-            ...account,
-            balance: account.openingBalance,
-            history: [],
-          },
-        ];
+        return [...prev, { ...account, balance: account.openingBalance }];
       });
       resetForm();
     } catch (error) {
@@ -235,8 +215,6 @@ export function AccountsClient({
                   <TableHeaderCell>Name</TableHeaderCell>
                   <TableHeaderCell>Type</TableHeaderCell>
                   <TableHeaderCell>Status</TableHeaderCell>
-                  <TableHeaderCell>Institution</TableHeaderCell>
-                  <TableHeaderCell>External ID</TableHeaderCell>
                   <TableHeaderCell className="text-right">Balance</TableHeaderCell>
                   <TableHeaderCell className="text-right">Opening</TableHeaderCell>
                   <TableHeaderCell></TableHeaderCell>
@@ -245,13 +223,9 @@ export function AccountsClient({
               <TableBody>
                 {accounts.map((account) => (
                   <TableRow key={account.id}>
-                    <TableCell className="font-medium text-gray-800">{account.name}</TableCell>
+                    <TableCell className="font-medium" style={{ color: 'var(--foreground)' }}>{account.name}</TableCell>
                     <TableCell>{account.type.replace("_", " ")}</TableCell>
                     <TableCell>{account.status}</TableCell>
-                    <TableCell>{account.institution ?? "—"}</TableCell>
-                    <TableCell className="max-w-[12rem] truncate font-mono text-xs text-[var(--muted-foreground)]">
-                      {account.externalAccountId ?? "—"}
-                    </TableCell>
                     <TableCell className="text-right font-semibold">
                       {formatCurrency(account.balance, account.currency)}
                     </TableCell>
@@ -265,7 +239,8 @@ export function AccountsClient({
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="text-red-600 hover:text-red-700 dark:text-rose-300 dark:hover:text-rose-200"
+                        className="hover:opacity-80"
+                        style={{ color: 'var(--destructive)' }}
                         onClick={() => handleDelete(account.id)}
                       >
                         Delete
@@ -277,23 +252,6 @@ export function AccountsClient({
             </Table>
           </CardContent>
         </Card>
-
-        {selectedAccount && (
-          <Card>
-            <CardHeader>
-              <CardTitle>{selectedAccount.name} balance history</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {selectedHistory.length === 0 ? (
-                <p className="text-sm text-[var(--muted-foreground)]">
-                  No snapshots recorded yet. Once a sync runs for this account, historical balances will appear here.
-                </p>
-              ) : (
-                <AccountBalanceChart currency={selectedAccount.currency} history={selectedHistory} />
-              )}
-            </CardContent>
-          </Card>
-        )}
       </div>
 
       <div className="space-y-4">
@@ -349,17 +307,6 @@ export function AccountsClient({
               <div className="space-y-2">
                 <Label htmlFor="institution">Institution</Label>
                 <Input id="institution" placeholder="Optional" {...form.register("institution")} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="externalAccountId">External account ID</Label>
-                <Input
-                  id="externalAccountId"
-                  placeholder="Optional ID used by Coinbase/Kraken/Gemini"
-                  {...form.register("externalAccountId")}
-                />
-                <p className="text-xs text-[var(--muted-foreground)]">
-                  Set this to the provider's account or wallet identifier to link automated balance syncs.
-                </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="notes">Notes</Label>

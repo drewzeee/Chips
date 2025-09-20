@@ -59,7 +59,6 @@ export async function POST(request: Request) {
       creditLimit: parsed.data.creditLimit ?? null,
       status: parsed.data.status,
       institution: parsed.data.institution ?? null,
-      externalAccountId: parsed.data.externalAccountId ?? null,
       notes: parsed.data.notes ?? null,
     },
   });

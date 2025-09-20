@@ -29,8 +29,13 @@ export const accountSchema = z.object({
   creditLimit: z.coerce.number().int().nullable(),
   status: z.enum(["ACTIVE", "CLOSED", "HIDDEN"]),
   institution: z.string().optional().nullable(),
-  externalAccountId: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
+});
+
+export const investmentAccountSchema = accountSchema.extend({
+  type: z.literal("INVESTMENT"),
+  assetClass: z.enum(["CRYPTO", "EQUITY", "MIXED"]),
+  kind: z.enum(["BROKERAGE", "WALLET"]).default("BROKERAGE"),
 });
 
 export const categorySchema = z.object({
@@ -132,4 +137,39 @@ export const transactionRuleSchema = z.object({
   descriptionContains: z.string().optional().nullable(),
   amountEquals: z.string().optional().nullable(),
   priority: z.coerce.number().int().min(1).max(999).optional(),
+});
+
+export const investmentTransactionSchema = z.object({
+  id: z.string().optional(),
+  investmentAccountId: z.string().min(1, "Account is required"),
+  type: z.enum(["BUY", "SELL", "DEPOSIT", "WITHDRAW", "DIVIDEND", "INTEREST", "FEE", "ADJUSTMENT"]),
+  assetType: z.enum(["CRYPTO", "EQUITY"]).optional(),
+  symbol: z.string().min(1, "Symbol is required").optional(),
+  quantity: z.string().optional(),
+  pricePerUnit: z.string().optional(),
+  amount: z.coerce.number().int(),
+  fees: z.coerce.number().int().optional().nullable(),
+  occurredAt: z.coerce.date(),
+  notes: z.string().optional().nullable(),
+});
+
+export const investmentValuationSchema = z.object({
+  investmentAccountId: z.string().min(1, "Account is required"),
+  value: z.coerce.number().int(),
+  asOf: z.coerce.date(),
+});
+
+export const investmentAssetSchema = z.object({
+  id: z.string().optional(),
+  investmentAccountId: z.string().min(1, "Account is required"),
+  name: z.string().min(1, "Name is required"),
+  symbol: z.string().optional().nullable(),
+  type: z.enum(["CRYPTO", "EQUITY"]),
+});
+
+export const investmentAssetValuationSchema = z.object({
+  investmentAssetId: z.string().min(1, "Asset is required"),
+  value: z.coerce.number().int(),
+  asOf: z.coerce.date(),
+  quantity: z.string().optional().nullable(),
 });

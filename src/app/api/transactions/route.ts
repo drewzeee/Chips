@@ -216,7 +216,6 @@ export async function DELETE(request: Request) {
     }
 
     const transactionIds = transactions.map((transaction) => transaction.id);
-
     await prisma.$transaction([
       prisma.transactionSplit.deleteMany({ where: { transactionId: { in: transactionIds }, userId: user.id } }),
       prisma.transaction.deleteMany({ where: { id: { in: transactionIds }, userId: user.id } }),

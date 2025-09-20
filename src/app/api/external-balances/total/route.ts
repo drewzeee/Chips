@@ -1,8 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getAuthSession } from "@/lib/auth";
-import { getTotalExternalBalanceUSD } from "@/lib/balance-snapshots";
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const session = await getAuthSession();
 
@@ -10,7 +9,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const totalUSD = await getTotalExternalBalanceUSD(session.user.id);
+    const totalUSD = 0;
 
     return NextResponse.json({ totalUSD });
   } catch (error) {

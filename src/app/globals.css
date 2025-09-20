@@ -24,21 +24,21 @@
 .dark {
   color-scheme: dark;
   --background: #020617;
-  --foreground: #e2e8f0;
+  --foreground: #f1f5f9;
   --muted: #475569;
-  --muted-foreground: #94a3b8;
-  --card: rgba(15, 23, 42, 0.8);
+  --muted-foreground: #a5b4fc;
+  --card: rgba(15, 23, 42, 0.92);
   --card-foreground: #f8fafc;
-  --border: rgba(148, 163, 184, 0.12);
-  --input: rgba(15, 23, 42, 0.85);
+  --border: rgba(148, 163, 184, 0.16);
+  --input: rgba(17, 24, 39, 0.85);
   --primary: #6366f1;
   --primary-foreground: #ede9fe;
   --secondary: rgba(46, 16, 101, 0.45);
   --secondary-foreground: #e0e7ff;
   --accent: rgba(37, 99, 235, 0.24);
   --accent-foreground: #dbeafe;
-  --destructive: #f87171;
-  --destructive-foreground: #111827;
+  --destructive: rgba(248, 113, 113, 0.7);
+  --destructive-foreground: #0f172a;
   --ring: #818cf8;
 }
 
