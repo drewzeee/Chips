@@ -22,6 +22,7 @@ import {
   type NetWorthRangeValue,
 } from "@/lib/dashboard";
 import { NetWorthRangeSelector } from "@/components/dashboard/net-worth-range-selector";
+import { calculateInvestmentAccountBalance } from "@/lib/investment-calculations";
 
 function sumValues(values: number[]) {
   return values.reduce((total, value) => total + value, 0);
@@ -96,11 +97,19 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     trendMonths = 1;
   }
 
-  const [accounts, transactionTotals, monthlySplits, uncategorizedTransactions, recentTransactions, preRangeSums, trendTransactions] =
+  const [accounts, investmentAccounts, transactionTotals, monthlySplits, uncategorizedTransactions, recentTransactions, preRangeSums, trendTransactions] =
     await Promise.all([
       prisma.financialAccount.findMany({
         where: { userId },
         orderBy: { name: "asc" },
+      }),
+      prisma.investmentAccount.findMany({
+        where: { userId },
+        include: {
+          trades: {
+            orderBy: { occurredAt: "desc" },
+          },
+        },
       }),
       prisma.transaction.groupBy({
         by: ["accountId"],
@@ -186,13 +195,47 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     transactionTotals.map((group) => [group.accountId, group._sum.amount ?? 0])
   );
 
-  const accountBalances = accounts.map((account) => {
-    const balance = account.openingBalance + (totalsMap.get(account.id) ?? 0);
-    return {
-      ...account,
-      balance,
-    };
-  });
+  // Create a map of financial account ID to investment account for quick lookup
+  const investmentAccountMap = new Map(
+    investmentAccounts.map((inv) => [inv.accountId, inv])
+  );
+
+  const accountBalances = await Promise.all(
+    accounts.map(async (account) => {
+      const investmentAccount = investmentAccountMap.get(account.id);
+
+      if (investmentAccount) {
+        // For investment accounts, use the proper calculation including market values
+        const accountBalance = await calculateInvestmentAccountBalance(
+          investmentAccount.id,
+          account.openingBalance,
+          investmentAccount.trades.map(trade => ({
+            type: trade.type,
+            assetType: trade.assetType,
+            symbol: trade.symbol,
+            quantity: trade.quantity?.toString() ?? null,
+            amount: trade.amount,
+            fees: trade.fees,
+          }))
+        );
+
+        // Convert from dollars to cents for consistent display
+        const balance = Math.round(accountBalance.totalValue * 100);
+
+        return {
+          ...account,
+          balance,
+        };
+      } else {
+        // For regular accounts, use simple transaction sum
+        const balance = account.openingBalance + (totalsMap.get(account.id) ?? 0);
+        return {
+          ...account,
+          balance,
+        };
+      }
+    })
+  );
 
   const totalNetWorth = sumValues(accountBalances.map((account) => account.balance));
 

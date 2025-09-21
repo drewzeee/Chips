@@ -176,3 +176,57 @@ export async function POST(
     { status: 201 }
   );
 }
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const user = await getAuthenticatedUser();
+  if (!user?.id) {
+    return unauthorizedResponse();
+  }
+
+  const investment = await prisma.investmentAccount.findUnique({
+    where: { id },
+    select: {
+      userId: true,
+    },
+  });
+
+  if (!investment || investment.userId !== user.id) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  const url = new URL(request.url);
+  const tradeId = url.searchParams.get("tradeId");
+
+  if (!tradeId) {
+    return NextResponse.json({ error: "Trade ID is required" }, { status: 400 });
+  }
+
+  const existingTrade = await prisma.investmentTransaction.findUnique({
+    where: { id: tradeId },
+  });
+
+  if (!existingTrade || existingTrade.userId !== user.id || existingTrade.investmentAccountId !== id) {
+    return NextResponse.json({ error: "Trade not found" }, { status: 404 });
+  }
+
+  await prisma.$transaction(async (tx) => {
+    // Delete the corresponding transaction record first
+    await tx.transaction.deleteMany({
+      where: {
+        reference: `investment_trade_${tradeId}`,
+        userId: user.id,
+      },
+    });
+
+    // Delete the investment transaction
+    await tx.investmentTransaction.delete({
+      where: { id: tradeId },
+    });
+  });
+
+  return NextResponse.json({ success: true });
+}

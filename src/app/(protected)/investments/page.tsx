@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { getAuthSession } from "@/lib/auth";
 import { InvestmentsClient, type InvestmentAccountDetail } from "@/components/investments/investments-client";
+import { calculateInvestmentAccountBalance } from "@/lib/investment-calculations";
+
 
 export default async function InvestmentsPage() {
   const session = await getAuthSession();
@@ -10,23 +12,16 @@ export default async function InvestmentsPage() {
     return null;
   }
 
-  const [investmentAccounts, transactionGroups, valuations, trades, assets] = await Promise.all([
+  const [investmentAccounts, valuations, trades, assets] = await Promise.all([
     prisma.investmentAccount.findMany({
       where: { userId },
       include: {
         account: true,
-      },
-      orderBy: { createdAt: "asc" },
-    }),
-    prisma.transaction.groupBy({
-      by: ["accountId"],
-      where: {
-        userId,
-        account: {
-          type: "INVESTMENT",
+        trades: {
+          orderBy: { occurredAt: "desc" },
         },
       },
-      _sum: { amount: true },
+      orderBy: { createdAt: "asc" },
     }),
     prisma.investmentValuation.findMany({
       where: { userId },
@@ -47,10 +42,6 @@ export default async function InvestmentsPage() {
       orderBy: { createdAt: "asc" },
     }),
   ]);
-
-  const totalsMap = new Map(
-    transactionGroups.map((group) => [group.accountId, group._sum.amount ?? 0])
-  );
 
   const valuationsMap = new Map<string, InvestmentAccountDetail["valuations"]>();
   for (const valuation of valuations) {
@@ -88,9 +79,26 @@ export default async function InvestmentsPage() {
     tradesMap.set(trade.investmentAccountId, list);
   }
 
-  const payload: InvestmentAccountDetail[] = investmentAccounts.map((investment) => {
+  const payload: InvestmentAccountDetail[] = await Promise.all(investmentAccounts.map(async (investment) => {
     const account = investment.account;
-    const balance = account.openingBalance + (totalsMap.get(account.id) ?? 0);
+
+    // Calculate actual balance including holdings and cash using the same logic as ledger
+    const accountBalance = await calculateInvestmentAccountBalance(
+      investment.id,
+      account.openingBalance,
+      investment.trades.map(trade => ({
+        type: trade.type,
+        assetType: trade.assetType,
+        symbol: trade.symbol,
+        quantity: trade.quantity?.toString() ?? null,
+        amount: trade.amount,
+        fees: trade.fees,
+      }))
+    );
+
+    // Convert from dollars to cents for display (since formatCurrency expects cents)
+    const balance = Math.round(accountBalance.totalValue * 100);
+
     const assetList = assets
       .filter((asset) => asset.investmentAccountId === investment.id)
       .map((asset) => ({
@@ -124,7 +132,7 @@ export default async function InvestmentsPage() {
       trades: tradesMap.get(investment.id) ?? [],
       assets: assetList,
     };
-  });
+  }));
 
   return (
     <InvestmentsClient

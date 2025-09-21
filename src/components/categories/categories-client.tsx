@@ -41,6 +41,8 @@ export function CategoriesClient({ initialCategories }: { initialCategories: Cat
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [filterType, setFilterType] = useState<"ALL" | CategoryItem["type"]>("ALL");
+  const [importing, setImporting] = useState(false);
+  const [importMessage, setImportMessage] = useState<string | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -149,27 +151,135 @@ export function CategoriesClient({ initialCategories }: { initialCategories: Cat
     };
   }, [categories]);
 
+  const handleExport = async () => {
+    try {
+      const response = await fetch('/api/categories/export');
+      if (!response.ok) {
+        throw new Error('Failed to export categories');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `categories-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to export categories');
+    }
+  };
+
+  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setImporting(true);
+    setImportMessage(null);
+    setError(null);
+
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+
+      const response = await fetch('/api/categories/import', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error || 'Failed to import categories');
+      }
+
+      const result = await response.json();
+
+      // Refresh categories list
+      const categoriesResponse = await fetch('/api/categories');
+      if (categoriesResponse.ok) {
+        const updatedCategories = await categoriesResponse.json();
+        setCategories(updatedCategories);
+      }
+
+      const messages = [];
+      if (result.imported > 0) {
+        messages.push(`${result.imported} categor${result.imported === 1 ? 'y' : 'ies'} imported successfully`);
+      }
+      if (result.skipped > 0) {
+        messages.push(`${result.skipped} categor${result.skipped === 1 ? 'y' : 'ies'} skipped`);
+      }
+      if (result.errors?.length > 0) {
+        messages.push(`Errors: ${result.errors.slice(0, 3).join(', ')}${result.errors.length > 3 ? '...' : ''}`);
+      }
+
+      setImportMessage(messages.join('. ') || 'Import completed');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to import categories');
+    } finally {
+      setImporting(false);
+      // Reset file input
+      event.target.value = '';
+    }
+  };
+
   return (
     <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
       <div className="space-y-4">
         <Card>
-          <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <CardTitle>Categories</CardTitle>
-            <Select
-              value={filterType}
-              onChange={(event) =>
-                setFilterType(event.target.value as "ALL" | CategoryItem["type"])
-              }
-            >
-              <option value="ALL">All types</option>
-              {CATEGORY_TYPES.map((type) => (
-                <option key={type.value} value={type.value}>
-                  {type.label}
-                </option>
-              ))}
-            </Select>
+          <CardHeader>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <CardTitle>Categories</CardTitle>
+              <div className="flex gap-2">
+                <Select
+                  value={filterType}
+                  onChange={(event) =>
+                    setFilterType(event.target.value as "ALL" | CategoryItem["type"])
+                  }
+                >
+                  <option value="ALL">All types</option>
+                  {CATEGORY_TYPES.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
+                </Select>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExport}
+                  disabled={categories.length === 0}
+                >
+                  Export
+                </Button>
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept=".json"
+                    onChange={handleImport}
+                    disabled={importing}
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    aria-label="Import categories file"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={importing}
+                  >
+                    {importing ? 'Importing...' : 'Import'}
+                  </Button>
+                </div>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
+            {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
+            {importMessage && <p className="text-sm text-green-600 mb-4">{importMessage}</p>}
             <Table>
               <TableHead>
                 <TableRow>

@@ -84,6 +84,8 @@ export function RulesManager({ initialRules, categories, accounts }: RulesManage
   const [formError, setFormError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [previewState, setPreviewState] = useState<PreviewState>(() => createEmptyPreviewState());
+  const [importing, setImporting] = useState(false);
+  const [importMessage, setImportMessage] = useState<string | null>(null);
 
   const resetForm = () => {
     setActiveRuleId(null);
@@ -304,10 +306,116 @@ export function RulesManager({ initialRules, categories, accounts }: RulesManage
     }
   };
 
+  const handleExport = async () => {
+    try {
+      const response = await fetch('/api/settings/rules/export');
+      if (!response.ok) {
+        throw new Error('Failed to export rules');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `transaction-rules-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'Failed to export rules');
+    }
+  };
+
+  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setImporting(true);
+    setImportMessage(null);
+    setFormError(null);
+
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+
+      const response = await fetch('/api/settings/rules/import', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error || 'Failed to import rules');
+      }
+
+      const result = await response.json();
+
+      // Refresh rules list
+      const rulesResponse = await fetch('/api/settings/rules');
+      if (rulesResponse.ok) {
+        const updatedRules = await rulesResponse.json();
+        setRules(updatedRules);
+      }
+
+      const messages = [];
+      if (result.imported > 0) {
+        messages.push(`${result.imported} rule${result.imported === 1 ? '' : 's'} imported successfully`);
+      }
+      if (result.skipped > 0) {
+        messages.push(`${result.skipped} rule${result.skipped === 1 ? '' : 's'} skipped`);
+      }
+      if (result.errors?.length > 0) {
+        messages.push(`Errors: ${result.errors.slice(0, 3).join(', ')}${result.errors.length > 3 ? '...' : ''}`);
+      }
+
+      setImportMessage(messages.join('. ') || 'Import completed');
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'Failed to import rules');
+    } finally {
+      setImporting(false);
+      // Reset file input
+      event.target.value = '';
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Auto-categorisation rules</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle>Auto-categorisation rules</CardTitle>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExport}
+              disabled={rules.length === 0}
+            >
+              Export Rules
+            </Button>
+            <div className="relative">
+              <input
+                type="file"
+                accept=".json"
+                onChange={handleImport}
+                disabled={importing}
+                className="absolute inset-0 opacity-0 cursor-pointer"
+                aria-label="Import rules file"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={importing}
+              >
+                {importing ? 'Importing...' : 'Import Rules'}
+              </Button>
+            </div>
+          </div>
+        </div>
       </CardHeader>
       <CardContent className="space-y-6">
         <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
@@ -403,6 +511,7 @@ export function RulesManager({ initialRules, categories, accounts }: RulesManage
         </form>
 
         {formError && <p className="text-sm text-red-600">{formError}</p>}
+        {importMessage && <p className="text-sm text-green-600">{importMessage}</p>}
 
         <div className="space-y-3">
           <h3 className="text-sm font-medium text-gray-900">Existing rules</h3>

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthenticatedUser, unauthorizedResponse } from "@/lib/auth-helpers";
-import { fetchCryptoPrices } from "@/lib/crypto-prices";
+import { fetchAllAssetPrices, calculatePositionValue, type AssetPosition } from "@/lib/asset-prices";
 import { upsertInvestmentAccountValuation } from "@/app/api/investments/helpers";
 
 interface ValuationResult {
@@ -81,48 +81,55 @@ export async function POST(request: Request) {
 
     console.log(`📊 Found ${investmentAccounts.length} investment accounts`);
 
-    // Collect all unique symbols that need pricing
-    const symbols = new Set<string>();
+    // Collect all positions across accounts
+    const allPositions: AssetPosition[] = [];
     const accountPositions = new Map<string, {
       account: typeof investmentAccounts[0];
-      positions: Map<string, { quantity: number; symbol: string }>;
+      positions: AssetPosition[];
     }>();
 
     for (const account of investmentAccounts) {
-      const positions = new Map<string, { quantity: number; symbol: string }>();
+      const positionMap = new Map<string, { quantity: number; symbol: string; assetType: 'CRYPTO' | 'EQUITY' | null }>();
 
       // Calculate current positions from trades
       for (const trade of account.trades) {
-        if (!trade.symbol) continue;
+        if (!trade.symbol || !trade.assetType) continue;
 
         const symbol = trade.symbol.toUpperCase();
         const quantity = Number(trade.quantity || 0);
+        const assetType = trade.assetType as 'CRYPTO' | 'EQUITY';
+
+        const key = `${symbol}_${assetType}`;
 
         if (trade.type === "BUY") {
-          const current = positions.get(symbol) || { quantity: 0, symbol };
-          positions.set(symbol, { ...current, quantity: current.quantity + quantity });
+          const current = positionMap.get(key) || { quantity: 0, symbol, assetType };
+          positionMap.set(key, { ...current, quantity: current.quantity + quantity });
         } else if (trade.type === "SELL") {
-          const current = positions.get(symbol) || { quantity: 0, symbol };
-          positions.set(symbol, { ...current, quantity: current.quantity - quantity });
-        }
-
-        symbols.add(symbol);
-      }
-
-      // Only keep positions with non-zero quantities
-      const nonZeroPositions = new Map();
-      for (const [symbol, position] of positions) {
-        if (position.quantity > 0) {
-          nonZeroPositions.set(symbol, position);
+          const current = positionMap.get(key) || { quantity: 0, symbol, assetType };
+          positionMap.set(key, { ...current, quantity: current.quantity - quantity });
         }
       }
 
-      if (nonZeroPositions.size > 0) {
-        accountPositions.set(account.id, { account, positions: nonZeroPositions });
+      // Convert to AssetPosition array with non-zero quantities
+      const positions: AssetPosition[] = [];
+      for (const [, position] of positionMap) {
+        if (position.quantity > 0 && position.assetType) {
+          const assetPosition: AssetPosition = {
+            symbol: position.symbol,
+            assetType: position.assetType,
+            quantity: position.quantity
+          };
+          positions.push(assetPosition);
+          allPositions.push(assetPosition);
+        }
+      }
+
+      if (positions.length > 0) {
+        accountPositions.set(account.id, { account, positions });
       }
     }
 
-    if (symbols.size === 0) {
+    if (allPositions.length === 0) {
       return NextResponse.json({
         success: true,
         processed: investmentAccounts.length,
@@ -132,22 +139,26 @@ export async function POST(request: Request) {
       });
     }
 
-    console.log(`💰 Fetching prices for symbols: ${Array.from(symbols).join(", ")}`);
+    const cryptoSymbols = allPositions.filter(p => p.assetType === 'CRYPTO').map(p => p.symbol);
+    const stockSymbols = allPositions.filter(p => p.assetType === 'EQUITY').map(p => p.symbol);
 
-    // Fetch current prices
-    const prices = await fetchCryptoPrices(Array.from(symbols));
+    console.log(`💰 Fetching prices - Crypto: [${cryptoSymbols.join(", ")}], Stocks: [${stockSymbols.join(", ")}]`);
 
-    if (Object.keys(prices).length === 0) {
+    // Fetch current prices for all asset types
+    const priceData = await fetchAllAssetPrices(allPositions);
+
+    const totalPricesFetched = Object.keys(priceData.cryptoPrices).length + Object.keys(priceData.stockPrices).length;
+    if (totalPricesFetched === 0) {
       return NextResponse.json({
         success: false,
         processed: 0,
         updated: 0,
         results: [],
-        errors: ["Failed to fetch any crypto prices"]
+        errors: ["Failed to fetch any asset prices"]
       });
     }
 
-    console.log(`📈 Retrieved prices:`, prices);
+    console.log(`📈 Retrieved prices - Crypto: ${Object.keys(priceData.cryptoPrices).length}, Stocks: ${Object.keys(priceData.stockPrices).length}`);
 
     const results: ValuationResult[] = [];
     const errors: string[] = [];
@@ -162,31 +173,31 @@ export async function POST(request: Request) {
         const accountResults: ValuationResult[] = [];
 
         // Calculate total value for this account
-        for (const [symbol, position] of positions) {
-          const price = prices[symbol];
-          if (!price) {
-            errors.push(`No price found for ${symbol} in account ${account.account.name}`);
+        for (const position of positions) {
+          const pricedPosition = calculatePositionValue(position, priceData);
+
+          if (pricedPosition.pricePerUnit === 0) {
+            errors.push(`No price found for ${position.symbol} (${position.assetType}) in account ${account.account.name}`);
             continue;
           }
 
-          const value = position.quantity * price;
-          totalAccountValue += value;
+          totalAccountValue += pricedPosition.totalValue;
 
           // Get previous valuation for comparison
           const previousValue = account.valuations[0]?.value || account.account.openingBalance;
-          const change = (value * 100) - previousValue; // Convert to cents
+          const change = (pricedPosition.totalValue * 100) - previousValue; // Convert to cents
           const changePercent = previousValue > 0 ? (change / previousValue) * 100 : 0;
 
           accountResults.push({
             investmentAccountId: accountId,
             accountName: account.account.name,
-            assetSymbol: symbol,
+            assetSymbol: `${position.symbol} (${position.assetType})`,
             quantity: position.quantity,
             oldValue: previousValue / 100,
-            newValue: value,
+            newValue: pricedPosition.totalValue,
             change: change / 100,
             changePercent,
-            pricePerUnit: price
+            pricePerUnit: pricedPosition.pricePerUnit
           });
         }
 

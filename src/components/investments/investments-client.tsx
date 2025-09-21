@@ -6,6 +6,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { investmentAccountSchema, investmentAssetSchema } from "@/lib/validators";
 import { parseAmountToCents, formatCurrency } from "@/lib/utils";
+import { getAssetDisplayName, formatAssetPrice } from "@/lib/asset-prices";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -16,6 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } fro
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { ValuationUpdater } from "./valuation-updater";
+import { AccountLedgerView } from "./account-ledger";
 
 export interface InvestmentValuationItem {
   id: string;
@@ -235,6 +237,7 @@ export function InvestmentsClient({
     initialAccounts[0]?.investmentAccountId ?? null
   );
   const [initialized, setInitialized] = useState(false);
+  const [ledgerView, setLedgerView] = useState<string | null>(null);
 
   const [accountDrawerMode, setAccountDrawerMode] = useState<"create" | "edit">("create");
   const [accountDrawerOpen, setAccountDrawerOpen] = useState(false);
@@ -831,6 +834,41 @@ export function InvestmentsClient({
     [loadAssets, selectedAccount]
   );
 
+  const handleDeleteTrade = useCallback(
+    async (tradeId: string) => {
+      if (!selectedAccount) return;
+      if (!window.confirm("Delete this transaction? This cannot be undone.")) {
+        return;
+      }
+
+      setTradeLoading(true);
+      setTradeError(null);
+      try {
+        const response = await fetch(
+          `/api/investments/accounts/${selectedAccount.investmentAccountId}/transactions?tradeId=${tradeId}`,
+          {
+            method: "DELETE",
+          }
+        );
+        if (!response.ok) {
+          const result = await response.json().catch(() => null);
+          throw new Error(result?.error ?? "Unable to delete transaction");
+        }
+
+        await Promise.all([
+          refreshAccounts(),
+          loadTrades(selectedAccount.investmentAccountId),
+          loadAssets(selectedAccount.investmentAccountId),
+        ]);
+      } catch (error) {
+        setTradeError(error instanceof Error ? error.message : "Unexpected error");
+      } finally {
+        setTradeLoading(false);
+      }
+    },
+    [selectedAccount, refreshAccounts, loadTrades, loadAssets]
+  );
+
   const onSubmitAssetValuation = assetValuationForm.handleSubmit(async (values) => {
     if (!selectedAccount) {
       setAssetValuationError("Select an account first");
@@ -886,6 +924,16 @@ export function InvestmentsClient({
   });
 
   const currentAssetId = assetValuationForm.watch("assetId");
+
+  // If ledger view is active, show ledger component
+  if (ledgerView) {
+    return (
+      <AccountLedgerView
+        investmentAccountId={ledgerView}
+        onBack={() => setLedgerView(null)}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -947,13 +995,24 @@ export function InvestmentsClient({
                           <Button
                             type="button"
                             size="sm"
+                            variant="default"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setLedgerView(account.investmentAccountId);
+                            }}
+                          >
+                            View Ledger
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
                             variant="secondary"
                             onClick={(event) => {
                               event.stopPropagation();
                               openEditDrawer(account);
                             }}
                           >
-                            Edit account
+                            Edit
                           </Button>
                           <Button
                             type="button"
@@ -978,6 +1037,18 @@ export function InvestmentsClient({
             </CardContent>
           </Card>
           <ValuationUpdater />
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-[var(--foreground)]">💡 Note</h3>
+                <p className="text-xs text-[var(--muted-foreground)]">
+                  Account balances shown here may not reflect current market values of your holdings.
+                  Click "View Ledger" for real-time portfolio values including stocks and crypto.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         <div className="space-y-6">
@@ -1108,15 +1179,26 @@ export function InvestmentsClient({
                               }`}
                             >
                               <div className="flex items-center justify-between">
-                                <span className="font-medium text-[var(--foreground)]">{asset.name}</span>
-                                <Badge tone="default">{asset.type}</Badge>
+                                <div className="flex-1">
+                                  <span className="font-medium text-[var(--foreground)]">{asset.name}</span>
+                                  {asset.symbol && (
+                                    <p className="text-xs text-[var(--muted-foreground)]">
+                                      {asset.symbol} • {getAssetDisplayName(asset.symbol, asset.type)}
+                                    </p>
+                                  )}
+                                </div>
+                                <Badge tone={asset.type === 'CRYPTO' ? 'warning' : 'success'}>
+                                  {asset.type === 'CRYPTO' ? 'Crypto' : 'Stock'}
+                                </Badge>
                               </div>
-                              {asset.symbol && (
-                                <p className="text-xs text-[var(--muted-foreground)]">{asset.symbol}</p>
-                              )}
                               {asset.valuations[0] && (
                                 <p className="mt-1 text-xs text-[var(--muted-foreground)]">
                                   Last value {formatCurrency(asset.valuations[0].value, selectedAccount.currency)}
+                                  {asset.valuations[0].quantity && (
+                                    <span className="ml-2">
+                                      ({asset.valuations[0].quantity} × ${formatAssetPrice(asset.valuations[0].value / Number(asset.valuations[0].quantity), asset.type)})
+                                    </span>
+                                  )}
                                 </p>
                               )}
                             </button>
@@ -1288,7 +1370,23 @@ export function InvestmentsClient({
                     </div>
                     <div className="space-y-1">
                       <Label htmlFor="tradeSymbol">Symbol</Label>
-                      <Input id="tradeSymbol" {...tradeForm.register("symbol")} placeholder="BTC" />
+                      <Input
+                        id="tradeSymbol"
+                        {...tradeForm.register("symbol")}
+                        placeholder={
+                          tradeForm.watch("assetType") === "EQUITY" ? "AAPL, TSLA, etc." :
+                          tradeForm.watch("assetType") === "CRYPTO" ? "BTC, ETH, etc." :
+                          "Symbol"
+                        }
+                      />
+                      {tradeForm.watch("assetType") && (
+                        <p className="text-xs text-[var(--muted-foreground)]">
+                          {tradeForm.watch("assetType") === "EQUITY" ?
+                            "Enter stock ticker symbol (e.g., AAPL for Apple)" :
+                            "Enter cryptocurrency symbol (e.g., BTC for Bitcoin)"
+                          }
+                        </p>
+                      )}
                     </div>
                     <div className="space-y-1">
                       <Label htmlFor="tradeQuantity">Quantity</Label>
@@ -1331,6 +1429,7 @@ export function InvestmentsClient({
                           <TableHeaderCell>Symbol</TableHeaderCell>
                           <TableHeaderCell>Amount</TableHeaderCell>
                           <TableHeaderCell>Notes</TableHeaderCell>
+                          <TableHeaderCell></TableHeaderCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -1341,11 +1440,22 @@ export function InvestmentsClient({
                             <TableCell>{trade.symbol ?? "—"}</TableCell>
                             <TableCell>{formatCurrency(trade.amount, selectedAccount.currency)}</TableCell>
                             <TableCell>{trade.notes ?? ""}</TableCell>
+                            <TableCell>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleDeleteTrade(trade.id)}
+                                disabled={tradeLoading}
+                              >
+                                Delete
+                              </Button>
+                            </TableCell>
                           </TableRow>
                         ))}
                         {selectedAccount.trades.length === 0 && (
                           <TableRow>
-                            <TableCell colSpan={5} className="text-center text-sm text-[var(--muted-foreground)]">
+                            <TableCell colSpan={6} className="text-center text-sm text-[var(--muted-foreground)]">
                               No transactions recorded yet.
                             </TableCell>
                           </TableRow>
