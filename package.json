@@ -7,7 +7,9 @@
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
-    "db:init": "prisma migrate deploy"
+    "db:init": "prisma migrate deploy",
+    "valuations:update": "tsx run-bitcoin-valuation.ts",
+    "valuations:cron": "curl -X POST http://localhost:3000/api/cron/valuations"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

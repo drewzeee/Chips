@@ -31,7 +31,9 @@ function aggregateTransactions(transactions: TransactionWithSplits[]) {
   const merchants = new Map<string, { name: string; amount: number }>();
 
   for (const transaction of transactions) {
-    if (transaction.reference && transaction.reference.startsWith("transfer_")) {
+    if (transaction.reference &&
+        (transaction.reference.startsWith("transfer_") ||
+         transaction.reference.startsWith("investment_"))) {
       continue;
     }
     const hasSplits = transaction.splits.length > 0;
@@ -225,7 +227,9 @@ export default async function MonthlyReportPage({
 
   const trendMap = new Map<string, { income: number; expenses: number }>();
   for (const transaction of trendTransactions as TransactionWithSplits[]) {
-    if (transaction.reference && transaction.reference.startsWith("transfer_")) {
+    if (transaction.reference &&
+        (transaction.reference.startsWith("transfer_") ||
+         transaction.reference.startsWith("investment_"))) {
       continue;
     }
     const key = format(transaction.date, "yyyy-MM");

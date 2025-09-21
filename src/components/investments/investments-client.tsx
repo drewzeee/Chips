@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
+import { ValuationUpdater } from "./valuation-updater";
 
 export interface InvestmentValuationItem {
   id: string;
@@ -917,17 +918,18 @@ export function InvestmentsClient({
                   {accounts.map((account) => {
                     const active = account.investmentAccountId === selectedAccountId;
                     return (
-                      <button
+                      <div
                         key={account.investmentAccountId}
-                        type="button"
-                        onClick={() => handleSelectAccount(account.investmentAccountId)}
-                        className={`w-full rounded-lg border px-4 py-3 text-left transition ${
+                        className={`w-full rounded-lg border px-4 py-3 transition cursor-pointer ${
                           active
                             ? "border-[var(--primary)] bg-[var(--primary)]/10"
                             : "border-[var(--border)] hover:border-[var(--primary)]"
                         }`}
                       >
-                        <div className="flex items-center justify-between gap-2">
+                        <div
+                          className="flex items-center justify-between gap-2"
+                          onClick={() => handleSelectAccount(account.investmentAccountId)}
+                        >
                           <div>
                             <p className="font-medium text-[var(--foreground)]">{account.name}</p>
                             <p className="text-xs text-[var(--muted-foreground)]">
@@ -965,7 +967,7 @@ export function InvestmentsClient({
                             Delete
                           </Button>
                         </div>
-                      </button>
+                      </div>
                     );
                   })}
                   {accounts.length === 0 && (
@@ -975,6 +977,7 @@ export function InvestmentsClient({
               </div>
             </CardContent>
           </Card>
+          <ValuationUpdater />
         </div>
 
         <div className="space-y-6">

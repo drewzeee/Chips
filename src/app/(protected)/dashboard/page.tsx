@@ -199,12 +199,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const incomeSplits = monthlySplits.filter(
     (split) =>
       split.category.type === "INCOME" &&
-      !(split.transaction.reference && split.transaction.reference.startsWith("transfer_"))
+      !(split.transaction.reference && split.transaction.reference.startsWith("transfer_")) &&
+      !(split.transaction.reference && split.transaction.reference.startsWith("investment_"))
   );
   const expenseSplits = monthlySplits.filter(
     (split) =>
       split.category.type === "EXPENSE" &&
-      !(split.transaction.reference && split.transaction.reference.startsWith("transfer_"))
+      !(split.transaction.reference && split.transaction.reference.startsWith("transfer_")) &&
+      !(split.transaction.reference && split.transaction.reference.startsWith("investment_"))
   );
 
   const monthlyIncome = sumValues(incomeSplits.map((split) => split.amount));
@@ -212,14 +214,18 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const uncategorizedExpense = sumValues(
     uncategorizedTransactions
       .filter((tx) =>
-        tx.amount < 0 && !(tx.reference && tx.reference.startsWith("transfer_"))
+        tx.amount < 0 &&
+        !(tx.reference && tx.reference.startsWith("transfer_")) &&
+        !(tx.reference && tx.reference.startsWith("investment_"))
       )
       .map((tx) => Math.abs(tx.amount))
   );
   const uncategorizedIncome = sumValues(
     uncategorizedTransactions
       .filter((tx) =>
-        tx.amount > 0 && !(tx.reference && tx.reference.startsWith("transfer_"))
+        tx.amount > 0 &&
+        !(tx.reference && tx.reference.startsWith("transfer_")) &&
+        !(tx.reference && tx.reference.startsWith("investment_"))
       )
       .map((tx) => tx.amount)
   );
@@ -311,6 +317,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const averageNetCash = (() => {
     const monthsMap = new Map<string, { income: number; expense: number }>();
     for (const split of monthlySplits) {
+      // Skip investment-related transactions in average calculation
+      if (split.transaction.reference && split.transaction.reference.startsWith("investment_")) {
+        continue;
+      }
       const key = format(split.transaction.date, "yyyy-MM");
       const entry = monthsMap.get(key) ?? { income: 0, expense: 0 };
       if (split.category.type === "INCOME") {
