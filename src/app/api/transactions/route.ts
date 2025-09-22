@@ -30,6 +30,9 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const filters = buildFilters(searchParams);
 
+  const limit = Number(searchParams.get("limit") ?? 200);
+  const offset = Number(searchParams.get("offset") ?? 0);
+
   const transactions = await prisma.transaction.findMany({
     where: {
       userId: user.id,
@@ -68,8 +71,8 @@ export async function GET(request: Request) {
         : {}),
       ...(filters.hideValuationAdjustments
         ? {
-            description: {
-              not: {
+            NOT: {
+              description: {
                 contains: "Valuation Adjustment",
                 mode: "insensitive",
               },
@@ -86,7 +89,8 @@ export async function GET(request: Request) {
       },
     },
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-    take: Number(searchParams.get("limit") ?? 200),
+    skip: offset,
+    take: limit,
   });
 
   return NextResponse.json(transactions);

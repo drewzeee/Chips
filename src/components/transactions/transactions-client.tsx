@@ -155,6 +155,8 @@ export function TransactionsClient({
   const [transferLoading, setTransferLoading] = useState(false);
   const [isTransactionDrawerOpen, setIsTransactionDrawerOpen] = useState(false);
   const [isTransferDrawerOpen, setIsTransferDrawerOpen] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [manualTransferModal, setManualTransferModal] = useState(false);
   const [manualTransferTarget, setManualTransferTarget] = useState<TransactionItem | null>(null);
   const [manualCandidates, setManualCandidates] = useState<ManualTransferCandidate[]>([]);
@@ -222,17 +224,53 @@ export function TransactionsClient({
     if (filters.to) params.append("to", filters.to);
     if (filters.uncategorized) params.append("uncategorized", "true");
     if (filters.hideValuationAdjustments) params.append("hideValuationAdjustments", "true");
-    params.append("limit", "200");
+    params.append("limit", "100");
+    params.append("offset", "0");
 
     setLoading(true);
     fetch(`/api/transactions?${params.toString()}`, { signal: controller.signal })
       .then((response) => response.json())
-      .then((data: TransactionItem[]) => setTransactions(data))
+      .then((data: TransactionItem[]) => {
+        setTransactions(data);
+        setHasMore(data.length === 100);
+      })
       .catch(() => null)
       .finally(() => setLoading(false));
 
     return () => controller.abort();
   }, [filters.accountId, filters.categoryId, filters.search, filters.from, filters.to, filters.uncategorized, filters.hideValuationAdjustments]);
+
+  const loadMore = async () => {
+    if (loadingMore || !hasMore) return;
+
+    setLoadingMore(true);
+    const params = new URLSearchParams();
+    if (filters.accountId) params.append("accountId", filters.accountId);
+    if (filters.categoryId) params.append("categoryId", filters.categoryId);
+    if (filters.search) params.append("search", filters.search);
+    if (filters.from) params.append("from", filters.from);
+    if (filters.to) params.append("to", filters.to);
+    if (filters.uncategorized) params.append("uncategorized", "true");
+    if (filters.hideValuationAdjustments) params.append("hideValuationAdjustments", "true");
+    params.append("limit", "100");
+    params.append("offset", transactions.length.toString());
+
+    try {
+      const response = await fetch(`/api/transactions?${params.toString()}`);
+      const newTransactions: TransactionItem[] = await response.json();
+
+      if (newTransactions.length > 0) {
+        setTransactions(prev => [...prev, ...newTransactions]);
+        setHasMore(newTransactions.length === 100);
+      } else {
+        setHasMore(false);
+      }
+    } catch (error) {
+      console.error('Failed to load more transactions:', error);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const resetForm = () => {
     setSelectedId(null);
@@ -475,7 +513,7 @@ export function TransactionsClient({
             deduped.push(entry);
           }
         }
-        nextTransactions = deduped.slice(0, 200);
+        nextTransactions = deduped;
       }
 
       setTransactions(nextTransactions);
@@ -522,7 +560,7 @@ export function TransactionsClient({
             updated = [updatedCounterpart, ...updated];
           }
 
-          return updated.slice(0, 200);
+          return updated;
         });
       }
 
@@ -579,7 +617,7 @@ export function TransactionsClient({
             deduped.push(item);
           }
         }
-        return deduped.slice(0, 200);
+        return deduped;
       });
       closeTransferDrawer();
     } catch (error) {
@@ -627,7 +665,7 @@ export function TransactionsClient({
         });
 
         if (updatedCounterpart && !next.some((item) => item.id === updatedCounterpart.id)) {
-          return [updatedCounterpart, ...next].slice(0, 200);
+          return [updatedCounterpart, ...next];
         }
         return next;
       });
@@ -902,6 +940,18 @@ export function TransactionsClient({
               })}
             </TableBody>
           </Table>
+          {hasMore && (
+            <div className="mt-4 flex justify-center">
+              <Button
+                variant="secondary"
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="min-w-32"
+              >
+                {loadingMore ? "Loading..." : "Load more"}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
