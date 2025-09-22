@@ -29,7 +29,7 @@ function sumValues(values: number[]) {
 }
 
 interface DashboardPageProps {
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }
 
 function resolveReferenceDate(searchParams?: Record<string, string | string[] | undefined>) {
@@ -61,8 +61,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     return null;
   }
 
-  const now = resolveReferenceDate(searchParams);
-  const rangeKey = resolveTrendRange(searchParams);
+  const resolvedSearchParams = await searchParams;
+  const now = resolveReferenceDate(resolvedSearchParams);
+  const rangeKey = resolveTrendRange(resolvedSearchParams);
   const monthStart = startOfMonth(now);
   const monthEnd = endOfMonth(now);
 

@@ -17,8 +17,9 @@ function buildFilters(params: URLSearchParams) {
   const to = params.get("to") ? new Date(params.get("to")!) : undefined;
   const uncategorized = params.get("uncategorized") === "true";
   const hideValuationAdjustments = params.get("hideValuationAdjustments") === "true";
+  const hideCryptoPurchases = params.get("hideCryptoPurchases") === "true";
 
-  return { accountId, status, search, categoryId, from, to, uncategorized, hideValuationAdjustments };
+  return { accountId, status, search, categoryId, from, to, uncategorized, hideValuationAdjustments, hideCryptoPurchases };
 }
 
 export async function GET(request: Request) {
@@ -76,6 +77,24 @@ export async function GET(request: Request) {
                 contains: "Valuation Adjustment",
                 mode: "insensitive",
               },
+            },
+          }
+        : {}),
+      ...(filters.hideCryptoPurchases
+        ? {
+            NOT: {
+              AND: [
+                {
+                  reference: {
+                    startsWith: "investment_trade_",
+                  },
+                },
+                {
+                  amount: {
+                    lt: 0, // Crypto purchases are negative amounts (outgoing money)
+                  },
+                },
+              ],
             },
           }
         : {}),
