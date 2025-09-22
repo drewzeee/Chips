@@ -1,0 +1,52 @@
+{
+  "accountMappings": [
+    {
+      "filename": "AllySavings.csv",
+      "accountId": "your-ally-savings-id",
+      "name": "Ally Savings",
+      "type": "savings"
+    },
+    {
+      "filename": "FreedomCC.csv",
+      "accountId": "your-freedom-cc-id",
+      "name": "Freedom Credit Card",
+      "type": "credit"
+    },
+    {
+      "filename": "TotalChecking.csv",
+      "accountId": "your-total-checking-id",
+      "name": "Total Checking",
+      "type": "checking"
+    },
+    {
+      "filename": "SapphireCC.csv",
+      "accountId": "your-sapphire-cc-id",
+      "name": "Sapphire Credit Card",
+      "type": "credit"
+    },
+    {
+      "filename": "BusinessSavings.csv",
+      "accountId": "your-business-savings-id",
+      "name": "Business Savings",
+      "type": "savings"
+    },
+    {
+      "filename": "AllySpending.csv",
+      "accountId": "your-ally-spending-id",
+      "name": "Ally Spending",
+      "type": "checking"
+    },
+    {
+      "filename": "Ink_Unlimited.csv",
+      "accountId": "your-ink-unlimited-id",
+      "name": "Ink Unlimited",
+      "type": "credit"
+    }
+  ],
+  "settings": {
+    "txsDirectory": "./txs",
+    "apiBaseUrl": "http://localhost:3000",
+    "enableDryRun": true,
+    "logLevel": "info"
+  }
+}

@@ -725,7 +725,7 @@ export function TransactionsClient({
       }
       // Apply crypto purchases filter - hide crypto purchases when checked
       if (filters.hideCryptoPurchases &&
-          transaction.reference?.startsWith("investment_trade_") && transaction.amount < 0) {
+          transaction.reference?.startsWith("investment_trade_")) {
         continue;
       }
 
@@ -917,7 +917,7 @@ export function TransactionsClient({
                   }
                   // Apply crypto purchases filter - hide crypto purchases when checked
                   if (filters.hideCryptoPurchases &&
-                      transaction.reference?.startsWith("investment_trade_") && transaction.amount < 0) {
+                      transaction.reference?.startsWith("investment_trade_")) {
                     return false;
                   }
                   return true;

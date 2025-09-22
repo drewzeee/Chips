@@ -83,18 +83,9 @@ export async function GET(request: Request) {
       ...(filters.hideCryptoPurchases
         ? {
             NOT: {
-              AND: [
-                {
-                  reference: {
-                    startsWith: "investment_trade_",
-                  },
-                },
-                {
-                  amount: {
-                    lt: 0, // Crypto purchases are negative amounts (outgoing money)
-                  },
-                },
-              ],
+              reference: {
+                startsWith: "investment_trade_",
+              },
             },
           }
         : {}),
