@@ -16,8 +16,9 @@ function buildFilters(params: URLSearchParams) {
   const from = params.get("from") ? new Date(params.get("from")!) : undefined;
   const to = params.get("to") ? new Date(params.get("to")!) : undefined;
   const uncategorized = params.get("uncategorized") === "true";
+  const hideValuationAdjustments = params.get("hideValuationAdjustments") === "true";
 
-  return { accountId, status, search, categoryId, from, to, uncategorized };
+  return { accountId, status, search, categoryId, from, to, uncategorized, hideValuationAdjustments };
 }
 
 export async function GET(request: Request) {
@@ -61,6 +62,16 @@ export async function GET(request: Request) {
             splits: {
               some: {
                 categoryId: filters.categoryId,
+              },
+            },
+          }
+        : {}),
+      ...(filters.hideValuationAdjustments
+        ? {
+            description: {
+              not: {
+                contains: "Valuation Adjustment",
+                mode: "insensitive",
               },
             },
           }

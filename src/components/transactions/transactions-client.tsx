@@ -105,6 +105,7 @@ type Filters = {
   from: string;
   to: string;
   uncategorized: boolean;
+  hideValuationAdjustments: boolean;
 };
 
 
@@ -145,6 +146,7 @@ export function TransactionsClient({
     from: "",
     to: "",
     uncategorized: false,
+    hideValuationAdjustments: true,
   });
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -219,6 +221,7 @@ export function TransactionsClient({
     if (filters.from) params.append("from", filters.from);
     if (filters.to) params.append("to", filters.to);
     if (filters.uncategorized) params.append("uncategorized", "true");
+    if (filters.hideValuationAdjustments) params.append("hideValuationAdjustments", "true");
     params.append("limit", "200");
 
     setLoading(true);
@@ -229,7 +232,7 @@ export function TransactionsClient({
       .finally(() => setLoading(false));
 
     return () => controller.abort();
-  }, [filters.accountId, filters.categoryId, filters.search, filters.from, filters.to, filters.uncategorized]);
+  }, [filters.accountId, filters.categoryId, filters.search, filters.from, filters.to, filters.uncategorized, filters.hideValuationAdjustments]);
 
   const resetForm = () => {
     setSelectedId(null);
@@ -667,7 +670,19 @@ export function TransactionsClient({
     let income = 0;
     let expenses = 0;
     let total = 0;
+    let count = 0;
     for (const transaction of transactions) {
+      // Apply the same filtering logic as the API
+      if (filters.hideValuationAdjustments &&
+          transaction.description.toLowerCase().includes("valuation adjustment")) {
+        continue;
+      }
+      // Apply uncategorized filter - only count transactions with no splits
+      if (filters.uncategorized && transaction.splits.length > 0) {
+        continue;
+      }
+
+      count++;
       total += transaction.amount;
       const isTransfer = transaction.reference?.startsWith("transfer_") ?? false;
       if (isTransfer) continue;
@@ -678,12 +693,12 @@ export function TransactionsClient({
       }
     }
     return {
-      count: transactions.length,
+      count,
       total,
       income,
       expenses,
     };
-  }, [transactions]);
+  }, [transactions, filters.hideValuationAdjustments, filters.uncategorized]);
 
   return (
     <div className="space-y-6">
@@ -752,17 +767,31 @@ export function TransactionsClient({
             </div>
             <div className="space-y-2">
               <Label htmlFor="uncategorized">Filters</Label>
-              <div className="flex items-center space-x-2">
-                <input
-                  id="uncategorized"
-                  type="checkbox"
-                  checked={filters.uncategorized}
-                  onChange={(event) => setFilters((prev) => ({ ...prev, uncategorized: event.target.checked }))}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                />
-                <Label htmlFor="uncategorized" className="text-sm font-normal">
-                  Uncategorized only
-                </Label>
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <input
+                    id="uncategorized"
+                    type="checkbox"
+                    checked={filters.uncategorized}
+                    onChange={(event) => setFilters((prev) => ({ ...prev, uncategorized: event.target.checked }))}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <Label htmlFor="uncategorized" className="text-sm font-normal">
+                    Uncategorized only
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    id="hideValuationAdjustments"
+                    type="checkbox"
+                    checked={filters.hideValuationAdjustments}
+                    onChange={(event) => setFilters((prev) => ({ ...prev, hideValuationAdjustments: event.target.checked }))}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <Label htmlFor="hideValuationAdjustments" className="text-sm font-normal">
+                    Hide valuation adjustments
+                  </Label>
+                </div>
               </div>
             </div>
           </div>
@@ -816,7 +845,20 @@ export function TransactionsClient({
               </TableRow>
             </TableHead>
             <TableBody>
-              {transactions.map((transaction) => {
+              {transactions
+                .filter((transaction) => {
+                  // Apply the same filtering logic as the API
+                  if (filters.hideValuationAdjustments &&
+                      transaction.description.toLowerCase().includes("valuation adjustment")) {
+                    return false;
+                  }
+                  // Apply uncategorized filter - only show transactions with no splits
+                  if (filters.uncategorized && transaction.splits.length > 0) {
+                    return false;
+                  }
+                  return true;
+                })
+                .map((transaction) => {
                 const isUncategorized = transaction.splits.length === 0;
                 const categoriesLabel = isUncategorized
                   ? "Uncategorized"

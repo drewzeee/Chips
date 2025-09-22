@@ -5,6 +5,7 @@ import {
   unauthorizedResponse,
 } from "@/lib/auth-helpers";
 import { investmentAccountSchema } from "@/lib/validators";
+import { calculateInvestmentAccountBalance } from "@/lib/investment-calculations";
 
 export async function GET() {
   const user = await getAuthenticatedUser();
@@ -16,6 +17,9 @@ export async function GET() {
     where: { userId: user.id },
     include: {
       account: true,
+      trades: {
+        orderBy: { occurredAt: "asc" },
+      },
       valuations: {
         orderBy: { asOf: "desc" },
         take: 1,
@@ -24,39 +28,37 @@ export async function GET() {
     orderBy: { createdAt: "asc" },
   });
 
-  const accountIds = accounts.map((item) => item.accountId);
+  const payload = await Promise.all(
+    accounts.map(async (item) => {
+      // Use the investment calculation logic to get accurate balance
+      const investmentBalance = await calculateInvestmentAccountBalance(
+        item.id,
+        item.account.openingBalance,
+        item.trades.map(trade => ({
+          type: trade.type,
+          assetType: trade.assetType,
+          symbol: trade.symbol,
+          quantity: trade.quantity?.toString() || null,
+          amount: trade.amount,
+          fees: trade.fees,
+        }))
+      );
 
-  const totals = accountIds.length
-    ? await prisma.transaction.groupBy({
-        by: ["accountId"],
-        where: {
-          userId: user.id,
-          accountId: { in: accountIds },
-        },
-        _sum: { amount: true },
-      })
-    : [];
-
-  const totalsMap = new Map(
-    totals.map((group) => [group.accountId, group._sum.amount ?? 0])
+      return {
+        investmentAccountId: item.id,
+        assetClass: item.assetClass,
+        kind: item.kind,
+        account: item.account,
+        balance: Math.round(investmentBalance.totalValue * 100), // Convert to cents for consistency
+        latestValuation: item.valuations[0]
+          ? {
+              value: item.valuations[0].value,
+              asOf: item.valuations[0].asOf,
+            }
+          : null,
+      };
+    })
   );
-
-  const payload = accounts.map((item) => {
-    const balance = item.account.openingBalance + (totalsMap.get(item.accountId) ?? 0);
-    return {
-      investmentAccountId: item.id,
-      assetClass: item.assetClass,
-      kind: item.kind,
-      account: item.account,
-      balance,
-      latestValuation: item.valuations[0]
-        ? {
-            value: item.valuations[0].value,
-            asOf: item.valuations[0].asOf,
-          }
-        : null,
-    };
-  });
 
   return NextResponse.json(payload);
 }

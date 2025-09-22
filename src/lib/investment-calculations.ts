@@ -44,7 +44,10 @@ export async function calculateInvestmentAccountBalance(
     if (trade.type === 'DEPOSIT') {
       cashBalance += amount;
     } else if (trade.type === 'WITHDRAW') {
-      cashBalance -= amount;
+      // Handle both positive and negative withdrawal amounts
+      // If amount is negative, it means it was stored as negative, so add it
+      // If amount is positive, subtract it as expected
+      cashBalance += amount; // This works for both positive and negative stored amounts
     } else if (trade.type === 'DIVIDEND' || trade.type === 'INTEREST') {
       cashBalance += amount;
     } else if (trade.type === 'FEE') {

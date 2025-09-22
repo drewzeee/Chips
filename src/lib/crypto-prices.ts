@@ -22,6 +22,8 @@ const CURRENCY_ID_MAP: Record<string, string> = {
   SUSHI: "sushi",
   CRV: "curve-dao-token",
   BAL: "balancer",
+  SILO: "silo-finance",
+  METIS: "metis-token",
   // Add more as needed
 };
 

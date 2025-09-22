@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { ValuationUpdater } from "./valuation-updater";
 import { AccountLedgerView } from "./account-ledger";
+import { CSVImport } from "./csv-import";
 
 export interface InvestmentValuationItem {
   id: string;
@@ -144,6 +145,17 @@ const tradeFormSchema = z.object({
   fees: z.string().optional().nullable(),
   occurredAt: z.string().min(1, "Date is required"),
   notes: z.string().optional().nullable(),
+}).refine((data) => {
+  // For BUY/SELL transactions, require both quantity and amount to calculate price
+  if ((data.type === "BUY" || data.type === "SELL") && data.quantity && data.amount) {
+    const quantity = parseFloat(data.quantity);
+    const amount = parseFloat(data.amount);
+    return quantity > 0 && amount > 0;
+  }
+  return true;
+}, {
+  message: "For buy/sell transactions, both quantity and amount must be positive numbers",
+  path: ["quantity"],
 });
 
 const assetFormSchema = investmentAssetSchema
@@ -298,6 +310,10 @@ export function InvestmentsClient({
       notes: "",
     },
   });
+
+  // Watch quantity and amount to calculate price per unit
+  const watchedQuantity = tradeForm.watch("quantity");
+  const watchedAmount = tradeForm.watch("amount");
 
   const assetForm = useForm<AssetFormValues>({
     resolver: zodResolver(assetFormSchema),
@@ -689,12 +705,22 @@ export function InvestmentsClient({
     setTradeError(null);
     setTradeLoading(true);
 
+    // Calculate price per unit from quantity and amount
+    let calculatedPricePerUnit: string | undefined;
+    if (values.quantity?.trim() && values.amount?.trim()) {
+      const quantity = parseFloat(values.quantity.trim());
+      const amount = parseFloat(values.amount.trim());
+      if (quantity > 0 && amount > 0) {
+        calculatedPricePerUnit = (amount / quantity).toString();
+      }
+    }
+
     const payload = {
       type: values.type,
       assetType: values.assetType ?? undefined,
       symbol: values.symbol?.trim() || undefined,
       quantity: values.quantity?.trim() || undefined,
-      pricePerUnit: values.pricePerUnit?.trim() || undefined,
+      pricePerUnit: calculatedPricePerUnit || undefined,
       amount: parseAmountToCents(values.amount),
       fees: values.fees ? parseAmountToCents(values.fees) : null,
       occurredAt: values.occurredAt,
@@ -1044,7 +1070,7 @@ export function InvestmentsClient({
                 <h3 className="text-sm font-medium text-[var(--foreground)]">💡 Note</h3>
                 <p className="text-xs text-[var(--muted-foreground)]">
                   Account balances shown here may not reflect current market values of your holdings.
-                  Click "View Ledger" for real-time portfolio values including stocks and crypto.
+                  Click &quot;View Ledger&quot; for real-time portfolio values including stocks and crypto.
                 </p>
               </div>
             </CardContent>
@@ -1129,7 +1155,7 @@ export function InvestmentsClient({
                         ))}
                         {selectedAccount.valuations.length === 0 && (
                           <TableRow>
-                            <TableCell colSpan={3} className="text-center text-sm text-[var(--muted-foreground)]">
+                            <TableCell className="text-center text-sm text-[var(--muted-foreground)]" {...({colSpan: 3})}>
                               No valuations recorded yet.
                             </TableCell>
                           </TableRow>
@@ -1323,7 +1349,7 @@ export function InvestmentsClient({
                               ))}
                               {selectedAsset.valuations.length === 0 && (
                                 <TableRow>
-                                  <TableCell colSpan={3} className="text-center text-sm text-[var(--muted-foreground)]">
+                                  <TableCell className="text-center text-sm text-[var(--muted-foreground)]" {...({colSpan: 3})}>
                                     No valuations recorded yet for this asset.
                                   </TableCell>
                                 </TableRow>
@@ -1336,6 +1362,15 @@ export function InvestmentsClient({
                   </div>
                 </CardContent>
               </Card>
+
+              <CSVImport
+                investmentAccountId={selectedAccount.investmentAccountId}
+                onImportComplete={() => {
+                  refreshAccounts();
+                  loadTrades(selectedAccount.investmentAccountId);
+                  loadAssets(selectedAccount.investmentAccountId);
+                }}
+              />
 
               <Card>
                 <CardHeader>
@@ -1393,12 +1428,13 @@ export function InvestmentsClient({
                       <Input id="tradeQuantity" {...tradeForm.register("quantity")} placeholder="0.5" />
                     </div>
                     <div className="space-y-1">
-                      <Label htmlFor="tradePrice">Price per unit</Label>
-                      <Input id="tradePrice" {...tradeForm.register("pricePerUnit")} placeholder="40000" />
-                    </div>
-                    <div className="space-y-1">
                       <Label htmlFor="tradeAmount">Amount</Label>
                       <Input id="tradeAmount" {...tradeForm.register("amount")} placeholder="1000" />
+                      {watchedQuantity && watchedAmount && parseFloat(watchedQuantity) > 0 && parseFloat(watchedAmount) > 0 && (
+                        <p className="text-xs text-[var(--muted-foreground)]">
+                          Price per unit: {formatCurrency(parseFloat(watchedAmount) / parseFloat(watchedQuantity) * 100, selectedAccount?.currency ?? defaultCurrency)}
+                        </p>
+                      )}
                     </div>
                     <div className="space-y-1">
                       <Label htmlFor="tradeFees">Fees</Label>
@@ -1455,7 +1491,7 @@ export function InvestmentsClient({
                         ))}
                         {selectedAccount.trades.length === 0 && (
                           <TableRow>
-                            <TableCell colSpan={6} className="text-center text-sm text-[var(--muted-foreground)]">
+                            <TableCell className="text-center text-sm text-[var(--muted-foreground)]" colSpan={6}>
                               No transactions recorded yet.
                             </TableCell>
                           </TableRow>

@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { CashflowChart } from "@/components/reports/cashflow-chart";
 import { CategoryTrendChart, type CategoryTrendSeries, type CategoryTrendMonth } from "@/components/reports/category-trend-chart";
+import { AccountBreakdownSection } from "@/components/reports/account-breakdown-section";
 import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 import { MonthSelector } from "@/components/reports/month-selector";
@@ -367,6 +368,8 @@ export default async function MonthlyReportPage({
           <CashflowChart data={chartData} />
         </CardContent>
       </Card>
+
+      <AccountBreakdownSection />
 
       {categoryTrendSeries.length > 0 && (
         <Card>

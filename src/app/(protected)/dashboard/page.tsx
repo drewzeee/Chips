@@ -340,9 +340,29 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   const labelFormat = trendMonths > 12 ? "MMM yy" : "MMM";
 
+  // Get investment valuations for the trend period
+  const investmentValuations = await prisma.investmentValuation.findMany({
+    where: {
+      userId,
+      asOf: {
+        gte: trendStart,
+      }
+    },
+    include: {
+      account: {
+        include: {
+          account: true
+        }
+      }
+    },
+    orderBy: { asOf: "asc" }
+  });
+
   let cursor = 0;
   const trendData = months.map((month) => {
     const monthEndDate = endOfMonth(month);
+
+    // Update traditional account balances based on transactions
     while (cursor < trendTransactions.length && trendTransactions[cursor].date <= monthEndDate) {
       const tx = trendTransactions[cursor];
       const current = baseBalances.get(tx.accountId) ?? 0;
@@ -350,7 +370,31 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       cursor += 1;
     }
 
-    const total = Array.from(baseBalances.values()).reduce((total, value) => total + value, 0);
+    // Calculate total from traditional accounts
+    let total = 0;
+    for (const account of accounts) {
+      if (!investmentAccountMap.has(account.id)) {
+        // Traditional account - use transaction-based balance
+        total += baseBalances.get(account.id) ?? account.openingBalance;
+      }
+    }
+
+    // Add investment account values for this month
+    for (const account of accounts) {
+      if (investmentAccountMap.has(account.id)) {
+        // Find the most recent valuation up to month end
+        const relevantValuations = investmentValuations.filter(
+          val => val.account.accountId === account.id && val.asOf <= monthEndDate
+        );
+
+        if (relevantValuations.length > 0) {
+          const latestValuation = relevantValuations[relevantValuations.length - 1];
+          total += latestValuation.value; // Investment valuations are already in cents
+        }
+        // If no valuation data for this investment account, it contributes 0
+      }
+    }
+
     return {
       label: format(month, labelFormat),
       value: total,
