@@ -84,6 +84,8 @@ export function RulesManager({ initialRules, categories, accounts }: RulesManage
   const [formError, setFormError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [previewState, setPreviewState] = useState<PreviewState>(() => createEmptyPreviewState());
+  const [importing, setImporting] = useState(false);
+  const [importMessage, setImportMessage] = useState<string | null>(null);
 
   const resetForm = () => {
     setActiveRuleId(null);
@@ -304,10 +306,116 @@ export function RulesManager({ initialRules, categories, accounts }: RulesManage
     }
   };
 
+  const handleExport = async () => {
+    try {
+      const response = await fetch('/api/settings/rules/export');
+      if (!response.ok) {
+        throw new Error('Failed to export rules');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `transaction-rules-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'Failed to export rules');
+    }
+  };
+
+  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setImporting(true);
+    setImportMessage(null);
+    setFormError(null);
+
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+
+      const response = await fetch('/api/settings/rules/import', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error || 'Failed to import rules');
+      }
+
+      const result = await response.json();
+
+      // Refresh rules list
+      const rulesResponse = await fetch('/api/settings/rules');
+      if (rulesResponse.ok) {
+        const updatedRules = await rulesResponse.json();
+        setRules(updatedRules);
+      }
+
+      const messages = [];
+      if (result.imported > 0) {
+        messages.push(`${result.imported} rule${result.imported === 1 ? '' : 's'} imported successfully`);
+      }
+      if (result.skipped > 0) {
+        messages.push(`${result.skipped} rule${result.skipped === 1 ? '' : 's'} skipped`);
+      }
+      if (result.errors?.length > 0) {
+        messages.push(`Errors: ${result.errors.slice(0, 3).join(', ')}${result.errors.length > 3 ? '...' : ''}`);
+      }
+
+      setImportMessage(messages.join('. ') || 'Import completed');
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'Failed to import rules');
+    } finally {
+      setImporting(false);
+      // Reset file input
+      event.target.value = '';
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Auto-categorisation rules</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle>Auto-categorisation rules</CardTitle>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExport}
+              disabled={rules.length === 0}
+            >
+              Export Rules
+            </Button>
+            <div className="relative">
+              <input
+                type="file"
+                accept=".json"
+                onChange={handleImport}
+                disabled={importing}
+                className="absolute inset-0 opacity-0 cursor-pointer"
+                aria-label="Import rules file"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={importing}
+              >
+                {importing ? 'Importing...' : 'Import Rules'}
+              </Button>
+            </div>
+          </div>
+        </div>
       </CardHeader>
       <CardContent className="space-y-6">
         <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
@@ -362,7 +470,7 @@ export function RulesManager({ initialRules, categories, accounts }: RulesManage
               value={formValues.priority ?? 100}
               onChange={(event) => handleChange("priority", Number(event.target.value))}
             />
-            <p className="text-xs text-gray-500">Lower numbers run first (default 100).</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Lower numbers run first (default 100).</p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="rule-starts">Description starts with</Label>
@@ -390,7 +498,7 @@ export function RulesManager({ initialRules, categories, accounts }: RulesManage
               onChange={(event) => handleChange("amountEquals", event.target.value)}
               placeholder="e.g. 8098.91"
             />
-            <p className="text-xs text-gray-500">Use positive numbers; the sign is ignored.</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Use positive numbers; the sign is ignored.</p>
           </div>
           <div className="flex items-end gap-2">
             <Button type="submit" disabled={pending}>
@@ -403,16 +511,17 @@ export function RulesManager({ initialRules, categories, accounts }: RulesManage
         </form>
 
         {formError && <p className="text-sm text-red-600">{formError}</p>}
+        {importMessage && <p className="text-sm text-green-600">{importMessage}</p>}
 
         <div className="space-y-3">
-          <h3 className="text-sm font-medium text-gray-900">Existing rules</h3>
+          <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">Existing rules</h3>
           {rules.length === 0 ? (
-            <p className="text-sm text-gray-500">No rules yet. Create one to start auto-categorising.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">No rules yet. Create one to start auto-categorising.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[620px] text-left text-sm">
                 <thead>
-                  <tr className="border-b border-gray-200 text-xs uppercase text-gray-500">
+                  <tr className="border-b border-gray-200 dark:border-gray-700 text-xs uppercase text-gray-500 dark:text-gray-400">
                     <th className="px-3 py-2">Name</th>
                     <th className="px-3 py-2">Category</th>
                     <th className="px-3 py-2">Account</th>
@@ -422,19 +531,19 @@ export function RulesManager({ initialRules, categories, accounts }: RulesManage
                     <th className="px-3 py-2 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                   {rules
                     .slice()
                     .sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name))
                     .map((rule) => (
                       <Fragment key={rule.id}>
-                        <tr className="hover:bg-gray-50">
+                        <tr className="hover:bg-gray-50 dark:hover:bg-gray-800">
                           <td className="px-3 py-3">
-                            <div className="font-medium text-gray-900">{rule.name}</div>
+                            <div className="font-medium text-gray-900 dark:text-gray-100">{rule.name}</div>
                           </td>
-                          <td className="px-3 py-3 text-gray-700">{rule.category.name}</td>
-                          <td className="px-3 py-3 text-gray-500">{rule.account?.name ?? "All"}</td>
-                          <td className="px-3 py-3 text-gray-500">
+                          <td className="px-3 py-3 text-gray-700 dark:text-gray-300">{rule.category.name}</td>
+                          <td className="px-3 py-3 text-gray-500 dark:text-gray-400">{rule.account?.name ?? "All"}</td>
+                          <td className="px-3 py-3 text-gray-500 dark:text-gray-400">
                             {rule.descriptionStartsWith && (
                               <div>Starts: {rule.descriptionStartsWith}</div>
                             )}
@@ -443,12 +552,12 @@ export function RulesManager({ initialRules, categories, accounts }: RulesManage
                             )}
                             {!rule.descriptionStartsWith && !rule.descriptionContains && <div>—</div>}
                           </td>
-                          <td className="px-3 py-3 text-gray-500">
+                          <td className="px-3 py-3 text-gray-500 dark:text-gray-400">
                             {rule.amountEquals != null
                               ? formatCurrency(Math.abs(rule.amountEquals), rule.account?.currency ?? "USD")
                               : "—"}
                           </td>
-                          <td className="px-3 py-3 text-gray-500">{rule.priority}</td>
+                          <td className="px-3 py-3 text-gray-500 dark:text-gray-400">{rule.priority}</td>
                           <td className="px-3 py-3 text-right space-x-2">
                             <Button
                               variant="ghost"
@@ -475,13 +584,13 @@ export function RulesManager({ initialRules, categories, accounts }: RulesManage
                         </tr>
                         {previewState.ruleId === rule.id && (
                           <tr>
-                            <td colSpan={7} className="bg-gray-50 px-3 py-4 text-sm text-gray-700">
+                            <td colSpan={7} className="bg-gray-50 dark:bg-gray-800 px-3 py-4 text-sm text-gray-700 dark:text-gray-300">
                               <div className="space-y-3">
                                 {previewState.loading ? (
                                   <p>Testing rule...</p>
                                 ) : previewState.error ? (
                                   <div className="flex flex-wrap items-center justify-between gap-3">
-                                    <p className="text-sm text-red-600">{previewState.error}</p>
+                                    <p className="text-sm text-red-600 dark:text-red-400">{previewState.error}</p>
                                     <div className="flex gap-2">
                                       <Button size="sm" onClick={() => handlePreview(rule.id)}>
                                         Retry
@@ -500,7 +609,7 @@ export function RulesManager({ initialRules, categories, accounts }: RulesManage
                                   <>
                                     <div className="flex flex-wrap items-center justify-between gap-3">
                                       <div>
-                                        <p className="font-medium text-gray-900">
+                                        <p className="font-medium text-gray-900 dark:text-gray-100">
                                           {previewState.data.count === 0
                                             ? "No transactions would be affected."
                                             : `${previewState.data.count} transaction${
@@ -508,12 +617,12 @@ export function RulesManager({ initialRules, categories, accounts }: RulesManage
                                               } match this rule.`}
                                         </p>
                                         {previewState.data.count > previewState.data.transactions.length && (
-                                          <p className="text-xs text-gray-500">
+                                          <p className="text-xs text-gray-500 dark:text-gray-400">
                                             Showing first {previewState.data.transactions.length} of {previewState.data.count} matches.
                                           </p>
                                         )}
                                         {previewState.data.transactions.some((transaction) => transaction.existingSplitCount > 0) && (
-                                          <p className="text-xs text-gray-500">
+                                          <p className="text-xs text-gray-500 dark:text-gray-400">
                                             Existing single-category assignments will be replaced. Multi-split transactions are skipped.
                                           </p>
                                         )}
@@ -541,13 +650,13 @@ export function RulesManager({ initialRules, categories, accounts }: RulesManage
                                       </div>
                                     </div>
                                     {previewState.message && (
-                                      <p className="text-xs text-green-600">{previewState.message}</p>
+                                      <p className="text-xs text-green-600 dark:text-green-400">{previewState.message}</p>
                                     )}
                                     {previewState.data.transactions.length > 0 && (
                                       <div className="overflow-x-auto">
                                         <table className="w-full min-w-[620px] text-xs">
                                           <thead>
-                                            <tr className="border-b border-gray-200 text-gray-500">
+                                            <tr className="border-b border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400">
                                               <th className="px-2 py-2 text-left">Date</th>
                                               <th className="px-2 py-2 text-left">Account</th>
                                               <th className="px-2 py-2 text-left">Description</th>
@@ -555,15 +664,15 @@ export function RulesManager({ initialRules, categories, accounts }: RulesManage
                                               <th className="px-2 py-2 text-right">Amount</th>
                                             </tr>
                                           </thead>
-                                          <tbody className="divide-y divide-gray-100">
+                                          <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                                             {previewState.data.transactions.map((transaction) => (
                                               <tr key={transaction.id}>
-                                                <td className="px-2 py-2 text-gray-600">
+                                                <td className="px-2 py-2 text-gray-600 dark:text-gray-300">
                                                   {format(new Date(transaction.date), "MMM d, yyyy")}
                                                 </td>
-                                                <td className="px-2 py-2 text-gray-600">{transaction.account.name}</td>
-                                                <td className="px-2 py-2 text-gray-600">{transaction.description}</td>
-                                                <td className="px-2 py-2 text-gray-600">
+                                                <td className="px-2 py-2 text-gray-600 dark:text-gray-300">{transaction.account.name}</td>
+                                                <td className="px-2 py-2 text-gray-600 dark:text-gray-300">{transaction.description}</td>
+                                                <td className="px-2 py-2 text-gray-600 dark:text-gray-300">
                                                   {transaction.existingSplitCount > 0 ? "Replace existing category" : "Assign category"}
                                                 </td>
                                                 <td className="px-2 py-2 text-right text-gray-600">

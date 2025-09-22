@@ -1,102 +1,252 @@
-# Personal Financial Portal
+# 💰 Chips Financial Hub
 
-A self-hosted personal finance portal that centralises budgeting, transaction management, and investment tracking. The MVP implemented here covers the Phase 1 requirements from the PRD: authentication, account management, transaction CRUD, CSV imports with column mapping, manual categorisation, dashboards, and monthly reporting.
+A comprehensive self-hosted personal finance platform that centralizes budgeting, transaction management, investment tracking, and financial automation. Built with modern web technologies and designed for power users who want complete control over their financial data.
 
-## Tech Stack
+## 🚀 Key Features
 
-- **Next.js 15** with the App Router
-- **TypeScript** and **Tailwind CSS 4** for the UI
-- **Prisma ORM** with SQLite for persistence
-- **Next-Auth** credentials provider for secure email / password authentication
-- **Recharts** for data visualisations
-- **Papa Parse** for client-side CSV parsing
+### 🔐 **Secure Authentication & User Management**
+- Email/password authentication with NextAuth.js
+- Secure session management with JWT tokens
+- Individual user accounts with data isolation
+- Password hashing with bcrypt
 
-## Features Delivered
+### 🏦 **Comprehensive Account Management**
+- **Multiple Account Types**: Checking, Savings, Credit Cards, Cash, Investment accounts
+- **Multi-currency Support**: Handle different currencies per account
+- **Account Features**: Opening balances, credit limits, institution tracking, custom notes
+- **Real-time Balance Calculations**: Automatic balance updates based on transactions
 
-- Email/password authentication with account bootstrap (default categories and accounts)
-- Dashboard with net worth, income/expense summaries, budget progress, and recent activity
-- Account management (create, edit, delete) with balance calculations
-- Category manager supporting hierarchies, colour coding, and monthly budgets
-- Transaction workspace with filtering, search, bulk splits, and inline status management
-- Seamless account-to-account transfers that keep ledgers in sync without affecting budgets
-- Automatic detection of mirrored debit/credit payments (e.g. credit card payoffs) with optional manual overrides
-- Review modal to manually pair unmatched transactions in-place
-- Slide-in drawers for adding or editing transactions/transfers on demand
-- CSV import wizard with saved mapping templates and duplicate detection
-- Rule-based auto-categorisation engine with priority ordering and optional account/description/amount matchers (managed in Settings)
-- Monthly reporting with comparative analytics, category breakdowns, and merchant insights
+### 💳 **Advanced Transaction Management**
+- **Full Transaction Lifecycle**: Create, edit, delete, search, and filter transactions
+- **Transaction Types**: Income, expenses, transfers, investment trades, adjustments
+- **Smart Features**: Merchant tracking, reference numbers, status management, memo fields
+- **Transfer Detection**: Automatic detection and pairing of account-to-account transfers
+- **Precision Handling**: Cent-based storage for accurate financial calculations
 
-## Prerequisites
+### 🏷️ **Intelligent Categorization System**
+- **Hierarchical Categories**: Parent/child category relationships
+- **Visual Customization**: Category colors, icons, and visual indicators
+- **Budget Integration**: Set monthly budget limits per category
+- **Transaction Splits**: Split single transactions across multiple categories
+- **Smart Rules**: Automated categorization based on patterns and rules
 
+### 📊 **Professional Investment Tracking**
+- **Investment Account Types**: Brokerage accounts, crypto wallets, 401k accounts
+- **Asset Management**: Individual asset tracking with symbols and quantities
+- **Trade Recording**: Buy/sell trades, deposits, withdrawals, dividends, fees
+- **Real-time Valuations**: Automated market price updates via CoinGecko API
+- **Performance Analytics**: Unrealized gains/losses, historical performance tracking
+- **✨ Automated Valuation System**:
+  - Real-time crypto price fetching
+  - Scheduled valuation updates
+  - Manual trigger capabilities
+  - Investment/cash flow separation
+
+### 📈 **Rich Dashboard & Analytics**
+- **Real-time Overview**: Net worth, monthly summaries, cash flow analysis
+- **Interactive Charts**: Net worth trends, spending breakdowns, budget progress
+- **Key Metrics**: Average cash flow, credit utilization, investment returns
+- **Customizable Timeframes**: 6 months, 1 year, 2 years, or all-time views
+
+### 📊 **Comprehensive Reporting**
+- **Monthly Reports**: Income vs expense analysis, category breakdowns, spending trends
+- **Merchant Analytics**: Top spending merchants and patterns
+- **Budget Tracking**: Budget vs actual spending with variance analysis
+- **Export Capabilities**: CSV exports with flexible date ranges and filtering
+
+### 🔄 **Powerful Data Import & Integration**
+- **Flexible CSV Import**: Custom column mapping with reusable templates
+- **Bulk Processing**: Import thousands of transactions efficiently
+- **Duplicate Detection**: Smart duplicate prevention during imports
+- **Bank Integration Ready**: Template system for different financial institutions
+- **Real-time Market Data**: CoinGecko API integration for crypto prices
+
+### 🤖 **Advanced Automation**
+- **Smart Transaction Rules**: Auto-categorization based on description, amount, account
+- **Rule Engine**: Priority-based rule system with preview capabilities
+- **Investment Automation**: Scheduled valuation updates with external cron support
+- **API Endpoints**: RESTful APIs for automation and integration
+- **Manual Triggers**: UI buttons for immediate updates and processing
+
+### ⚙️ **Professional Configuration**
+- **Rule Management**: Create, test, and apply categorization rules
+- **Template System**: Reusable import configurations
+- **Theme Support**: Light/dark mode with system preference detection
+- **Multi-currency**: Support for different currencies across accounts
+
+## 🛠️ Tech Stack
+
+- **Frontend**: Next.js 15 with App Router, TypeScript, TailwindCSS 4
+- **Backend**: Next.js API routes with comprehensive validation
+- **Database**: PostgreSQL with Prisma ORM
+- **Authentication**: NextAuth.js with credential provider
+- **Visualization**: Recharts for interactive charts and graphs
+- **Data Processing**: Papa Parse for CSV import capabilities
+- **Real-time Data**: CoinGecko API for market prices
+- **Automation**: Built-in cron endpoints and scheduling support
+
+## ⚡ Quick Start
+
+### Prerequisites
 - Node.js 20+
-- npm (installed with Node.js)
-- `sqlite3` CLI (used by the helper script to initialise the database schema)
+- PostgreSQL database (Supabase recommended)
+- npm or yarn package manager
 
-## Getting Started
+### Installation
 
 ```bash
-# Install dependencies
+# Clone and install
+git clone <repository-url>
+cd chips
 npm install
 
-# Copy the environment template and update it
+# Environment setup
 cp .env.example .env
-# Set NEXTAUTH_SECRET to any strong random value.
+# Configure your database URLs and NextAuth secret
 
-# Generate the database schema (creates dev.db)
+# Database setup
 npm run db:init
-
-# Generate the Prisma client
 npx prisma generate
 
-# Start the development server
+# Start development server
 npm run dev
 ```
 
-Visit `http://localhost:3000` and create your first user account. The registration flow seeds default categories and two starter accounts (Checking, Cash).
+Visit `http://localhost:3000` to create your account and start managing your finances!
 
-## Project Structure
+## 📁 Project Structure
 
-```text
+```
 src/
-  app/
-    (auth)/           Authentication pages
-    (protected)/      Dashboard, accounts, categories, transactions, reports, settings
-    api/              REST endpoints for auth, accounts, categories, transactions, import
-  components/         UI primitives and feature modules
-  lib/                Prisma client, Next-Auth config, validators, utilities
-  types/              Type augmentations (Next-Auth)
+├── app/
+│   ├── (auth)/              # Authentication pages
+│   ├── (protected)/         # Main application pages
+│   │   ├── dashboard/       # Dashboard and analytics
+│   │   ├── accounts/        # Account management
+│   │   ├── investments/     # Investment tracking
+│   │   ├── transactions/    # Transaction management
+│   │   ├── categories/      # Category management
+│   │   ├── import/         # CSV import wizard
+│   │   ├── reports/        # Financial reports
+│   │   └── settings/       # Configuration
+│   └── api/                # REST API endpoints
+├── components/             # Reusable UI components
+├── lib/                   # Utilities and configurations
+└── types/                 # TypeScript type definitions
+
 prisma/
-  schema.prisma       Prisma data model
-  init.sql            SQLite schema bootstrap used by `npm run db:init`
+├── schema.prisma          # Database schema
+└── migrations/           # Database migrations
 ```
 
-## Auto-Categorisation Rules
+## 🔧 Automation Setup
 
-- Add and manage rules from **Settings → Auto-categorisation rules**.
-- Each rule can target a specific account (or all), match descriptions that start with and/or contain text, and optionally require an exact amount.
-- Amount comparisons ignore the sign, so `-125.40` and `125.40` are treated the same.
-- Rules execute in ascending priority order (lower number runs first); the first match wins and applies the linked category as a single split for the full transaction amount.
-- Updates and deletions take effect immediately and apply to future imports or manual entries; existing transactions can be reprocessed by editing them.
-- Use **Test run** beside any rule to preview the first 50 matching transactions and confirm the bulk update before applying the rule to your history.
+### Investment Valuation Automation
 
-## Environment Variables
+Set up automated investment valuations to keep your portfolio current:
 
-| Variable         | Description                                      |
-| ---------------- | ------------------------------------------------ |
-| `DATABASE_URL`   | Prisma connection string (default `file:./dev.db`) |
-| `NEXTAUTH_SECRET`| Random string used to sign Next-Auth JWTs         |
-| `NEXTAUTH_URL`   | Base URL for Next-Auth callbacks (e.g. localhost) |
+**Option 1: External Cron Service**
+```bash
+# Using cron-job.org or similar
+POST https://your-domain.com/api/cron/valuations
+Authorization: Bearer YOUR_SECRET_TOKEN
+Schedule: 0 */6 * * * (every 6 hours)
+```
 
-## Available Scripts
+**Option 2: GitHub Actions**
+```yaml
+# .github/workflows/valuations.yml
+name: Update Investment Valuations
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger valuation update
+        run: |
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET_TOKEN }}" \
+            https://your-domain.com/api/cron/valuations
+```
 
-- `npm run dev` – start the Next.js development server
-- `npm run build` – build for production
-- `npm run start` – start the production server
-- `npm run lint` – run ESLint
-- `npm run db:init` – create/refresh the SQLite schema from `prisma/init.sql`
+**Option 3: Manual Triggers**
+- Use the "Update Now" button in the Investments page
+- Run `npm run valuations:update` from command line
+- Call the API endpoint directly
 
-## Notes & Next Steps
+## 🔐 Environment Variables
 
-- The CSV import wizard stores mapping templates per user; manage them from **Settings → Import templates**.
-- Additional roadmap items (machine-learning suggestions, advanced analytics, market data) can be layered on top of this foundation.
-- When deploying beyond local development, swap SQLite for Postgres/MySQL and update `schema.prisma` accordingly.
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `DATABASE_URL` | PostgreSQL connection string | ✅ |
+| `DIRECT_DATABASE_URL` | Direct database connection for migrations | ✅ |
+| `NEXTAUTH_SECRET` | Secret for JWT signing | ✅ |
+| `NEXTAUTH_URL` | Base URL for authentication callbacks | ✅ |
+| `CRON_SECRET_TOKEN` | Secret token for automation endpoints | 🔄 |
+
+## 📋 Available Scripts
+
+```bash
+npm run dev              # Start development server
+npm run build           # Build for production
+npm run start           # Start production server
+npm run lint            # Run ESLint
+npm run db:init         # Run database migrations
+npm run valuations:update    # Update investment valuations
+npm run valuations:cron     # Test cron endpoint
+```
+
+## 🎯 Key Strengths
+
+- **🔒 Security First**: Secure authentication, input validation, SQL injection protection
+- **📊 Investment-Aware**: Proper separation of investments from cash flow calculations
+- **🤖 Automation-Ready**: Built-in scheduling and API endpoints for automation
+- **📥 Import-Friendly**: Flexible CSV import with bank-specific templates
+- **⚡ Real-time Updates**: Live market data integration with CoinGecko
+- **🌍 Multi-currency**: Handle international accounts and currencies
+- **🏗️ Professional Architecture**: Scalable, maintainable, and well-documented codebase
+
+## 🆕 Recent Enhancements
+
+- ✅ **Automated Investment Valuations** with real-time crypto price updates
+- ✅ **Investment/Cash Flow Separation** for accurate financial reporting
+- ✅ **Manual Valuation Triggers** via UI and API endpoints
+- ✅ **External Automation Support** with cron job integration
+- ✅ **Enhanced Error Handling** with comprehensive validation and reporting
+- ✅ **Dark Mode Support** with system preference detection
+- ✅ **Performance Optimizations** for large transaction datasets
+
+## 🚀 Deployment
+
+The application is production-ready and can be deployed to:
+- **Vercel** (recommended for Next.js apps)
+- **Docker containers**
+- **Traditional VPS/cloud servers**
+- **Self-hosted environments**
+
+For production deployment:
+1. Set up PostgreSQL database
+2. Configure environment variables
+3. Run database migrations
+4. Build and deploy the application
+5. Set up automation endpoints if desired
+
+## 📚 Documentation
+
+- **Setup Guide**: See `AUTOMATION_SETUP.md` for detailed automation configuration
+- **API Documentation**: REST endpoints documented in code with TypeScript types
+- **Database Schema**: Comprehensive Prisma schema with relationships and constraints
+
+## 🤝 Contributing
+
+This is a personal finance platform designed for self-hosting. Feel free to fork and customize for your own needs!
+
+## 📄 License
+
+[Your chosen license]
+
+---
+
+**Chips Financial Hub** - Take control of your financial data with professional-grade tools and automation capabilities. 💰✨

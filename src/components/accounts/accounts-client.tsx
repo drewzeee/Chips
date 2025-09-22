@@ -223,7 +223,7 @@ export function AccountsClient({
               <TableBody>
                 {accounts.map((account) => (
                   <TableRow key={account.id}>
-                    <TableCell className="font-medium text-gray-800">{account.name}</TableCell>
+                    <TableCell className="font-medium" style={{ color: 'var(--foreground)' }}>{account.name}</TableCell>
                     <TableCell>{account.type.replace("_", " ")}</TableCell>
                     <TableCell>{account.status}</TableCell>
                     <TableCell className="text-right font-semibold">
@@ -239,7 +239,8 @@ export function AccountsClient({
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="text-red-600 hover:text-red-700 dark:text-rose-300 dark:hover:text-rose-200"
+                        className="hover:opacity-80"
+                        style={{ color: 'var(--destructive)' }}
                         onClick={() => handleDelete(account.id)}
                       >
                         Delete

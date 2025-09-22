@@ -4,6 +4,8 @@ import { getAuthSession } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { CashflowChart } from "@/components/reports/cashflow-chart";
+import { CategoryTrendsSection } from "@/components/reports/category-trends-section";
+import { AccountBreakdownSection } from "@/components/reports/account-breakdown-section";
 import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 import { MonthSelector } from "@/components/reports/month-selector";
@@ -16,6 +18,7 @@ type TransactionWithSplits = {
   splits: {
     amount: number;
     category: {
+      id: string;
       name: string;
       type: "INCOME" | "EXPENSE" | "TRANSFER";
     } | null;
@@ -29,7 +32,9 @@ function aggregateTransactions(transactions: TransactionWithSplits[]) {
   const merchants = new Map<string, { name: string; amount: number }>();
 
   for (const transaction of transactions) {
-    if (transaction.reference && transaction.reference.startsWith("transfer_")) {
+    if (transaction.reference &&
+        (transaction.reference.startsWith("transfer_") ||
+         transaction.reference.startsWith("investment_"))) {
       continue;
     }
     const hasSplits = transaction.splits.length > 0;
@@ -177,9 +182,20 @@ export default async function MonthlyReportPage({
     return { value, label: format(date, "MMMM yyyy") };
   });
 
+  // Generate cashflow chart data
+  const monthTimeline = Array.from({ length: 6 }).map((_, idx) => {
+    const date = subMonths(monthStart, 5 - idx);
+    return {
+      key: format(date, "yyyy-MM"),
+      label: format(date, "MMM"),
+    };
+  });
+
   const trendMap = new Map<string, { income: number; expenses: number }>();
   for (const transaction of trendTransactions as TransactionWithSplits[]) {
-    if (transaction.reference && transaction.reference.startsWith("transfer_")) {
+    if (transaction.reference &&
+        (transaction.reference.startsWith("transfer_") ||
+         transaction.reference.startsWith("investment_"))) {
       continue;
     }
     const key = format(transaction.date, "yyyy-MM");
@@ -202,16 +218,15 @@ export default async function MonthlyReportPage({
     trendMap.set(key, entry);
   }
 
-  const chartData = Array.from({ length: 6 }).map((_, idx) => {
-    const date = subMonths(monthStart, 5 - idx);
-    const key = format(date, "yyyy-MM");
+  const chartData = monthTimeline.map(({ key, label }) => {
     const entry = trendMap.get(key) ?? { income: 0, expenses: 0 };
     return {
-      label: format(date, "MMM"),
+      label,
       income: entry.income,
       expenses: entry.expenses,
     };
   });
+
 
   return (
     <div className="space-y-6">
@@ -278,6 +293,10 @@ export default async function MonthlyReportPage({
           <CashflowChart data={chartData} />
         </CardContent>
       </Card>
+
+      <AccountBreakdownSection />
+
+      <CategoryTrendsSection />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>

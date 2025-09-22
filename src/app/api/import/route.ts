@@ -114,6 +114,7 @@ export async function POST(request: Request) {
   }
 
   const createdTransactionIds: string[] = [];
+  const importTag = uniqueRows.length > 0 ? `import_${Date.now()}` : null;
 
   await prisma.$transaction(async (tx) => {
     for (const row of uniqueRows) {
@@ -128,6 +129,7 @@ export async function POST(request: Request) {
           reference: row.reference ?? null,
           status: "CLEARED",
           pending: false,
+          importTag: importTag ?? undefined,
         },
         select: {
           id: true,
@@ -200,5 +202,6 @@ export async function POST(request: Request) {
   return NextResponse.json({
     imported: uniqueRows.length,
     duplicates: duplicates.length,
+    importTag,
   });
 }

@@ -72,6 +72,8 @@ export async function PUT(
         status: parsed.data.status,
         merchant: parsed.data.merchant ?? null,
         pending: parsed.data.status === "PENDING",
+        reference: parsed.data.reference ?? null,
+        importTag: parsed.data.importTag ?? existing.importTag,
       },
     });
 
@@ -153,7 +155,31 @@ export async function DELETE(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  await prisma.transaction.delete({ where: { id } });
+  await prisma.$transaction(async (tx) => {
+    // If this is an investment trade transaction, also delete the investment transaction record
+    if (existing.reference?.startsWith("investment_trade_")) {
+      const investmentTradeId = existing.reference.replace("investment_trade_", "");
+      await tx.investmentTransaction.deleteMany({
+        where: {
+          id: investmentTradeId,
+          userId: user.id,
+        },
+      });
+    }
+
+    // If this is a valuation adjustment transaction, also delete the corresponding valuation
+    if (existing.reference?.startsWith("investment_valuation_")) {
+      const valuationId = existing.reference.replace("investment_valuation_", "");
+      await tx.investmentValuation.deleteMany({
+        where: {
+          id: valuationId,
+          userId: user.id,
+        },
+      });
+    }
+
+    await tx.transaction.delete({ where: { id } });
+  });
 
   return NextResponse.json({ success: true });
 }

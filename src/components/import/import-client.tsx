@@ -89,6 +89,11 @@ export function ImportClient({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [lastImportTag, setLastImportTag] = useState<string | null>(null);
+  const [deleteTag, setDeleteTag] = useState("");
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteSuccess, setDeleteSuccess] = useState<string | null>(null);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -253,7 +258,17 @@ export function ImportClient({
       }
 
       const result = await response.json();
-      setSuccessMessage(`Imported ${result.imported} transactions. ${result.duplicates} duplicates skipped.`);
+      const tag = result.importTag ?? null;
+      setSuccessMessage(
+        `Imported ${result.imported} transactions. ${result.duplicates} duplicates skipped.` +
+          (tag ? ` Tag: ${tag}` : "")
+      );
+      setLastImportTag(tag);
+      if (tag) {
+        setDeleteTag(tag);
+        setDeleteSuccess(null);
+        setDeleteError(null);
+      }
       setStep(1);
       setPreparedRows([]);
       setPreviewStats(null);
@@ -264,6 +279,41 @@ export function ImportClient({
       setError(err instanceof Error ? err.message : "Unexpected error");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteByTag = async () => {
+    const trimmed = deleteTag.trim();
+    if (!trimmed) {
+      setDeleteError("Enter an import tag");
+      setDeleteSuccess(null);
+      return;
+    }
+
+    setDeleteLoading(true);
+    setDeleteError(null);
+    setDeleteSuccess(null);
+
+    try {
+      const response = await fetch(`/api/transactions?importTag=${encodeURIComponent(trimmed)}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error ?? "Unable to remove transactions by tag");
+      }
+
+      const result = await response.json();
+      if (result.deleted === 0) {
+        setDeleteSuccess(`No transactions found with tag “${trimmed}”.`);
+      } else {
+        setDeleteSuccess(`Removed ${result.deleted} transactions tagged “${trimmed}”.`);
+      }
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Unexpected error");
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -473,7 +523,42 @@ export function ImportClient({
           )}
 
           {error && <p className="text-sm text-red-600">{error}</p>}
-          {successMessage && <p className="text-sm text-green-600">{successMessage}</p>}
+          {successMessage && (
+            <div className="space-y-2 text-sm text-green-600">
+              <p>{successMessage}</p>
+              {lastImportTag && (
+                <div className="flex items-center gap-2 text-xs text-green-700">
+                  <span>Use the remove-by-tag tool below with this tag to undo the import.</span>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Remove transactions by import tag</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="deleteTag">Import tag</Label>
+            <Input
+              id="deleteTag"
+              value={deleteTag}
+              onChange={(event) => setDeleteTag(event.target.value)}
+              placeholder="e.g. import_1695142345678"
+            />
+            <p className="text-xs text-gray-500">
+              Tags are generated for each import and shown in the success message above. Removing by tag deletes
+              every transaction that was part of that import.
+            </p>
+          </div>
+          <Button type="button" onClick={handleDeleteByTag} disabled={deleteLoading}>
+            {deleteLoading ? "Removing..." : "Remove transactions"}
+          </Button>
+          {deleteError && <p className="text-sm text-red-600">{deleteError}</p>}
+          {deleteSuccess && <p className="text-sm text-green-600">{deleteSuccess}</p>}
         </CardContent>
       </Card>
     </div>

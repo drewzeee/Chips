@@ -12,7 +12,7 @@ interface CreateTransferCandidateParams {
 }
 
 const MATCH_WINDOW_DAYS = 3;
-const AMOUNT_TOLERANCE = 100; // cents ($1 tolerance)
+const AMOUNT_TOLERANCE = 1; // cents ($0.01 tolerance)
 
 const likelyTransferKeywords = [
   "payment",

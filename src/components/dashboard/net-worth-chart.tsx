@@ -23,6 +23,17 @@ const formatter = (value: number, currency: string) =>
   }).format(value / 100);
 
 export function NetWorthChart({ data, currency = "USD" }: NetWorthChartProps) {
+  const values = data.map(d => d.value);
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  const range = maxValue - minValue;
+  const padding = Math.max(range * 0.1, 1000);
+
+  const yAxisDomain = [
+    Math.max(0, minValue - padding),
+    maxValue + padding
+  ];
+
   return (
     <ResponsiveContainer width="100%" height={260}>
       <AreaChart data={data} margin={{ top: 10, left: 0, right: 0, bottom: 0 }}>
@@ -39,6 +50,7 @@ export function NetWorthChart({ data, currency = "USD" }: NetWorthChartProps) {
           fontSize={12}
           tickFormatter={(value) => formatter(value as number, currency)}
           width={80}
+          domain={yAxisDomain}
         />
         <Tooltip
           formatter={(value: number) => formatter(value, currency)}

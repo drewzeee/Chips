@@ -40,7 +40,6 @@ export default async function TransactionsPage() {
         id: true,
         name: true,
         type: true,
-        parentId: true,
       },
     }),
   ]);
@@ -60,6 +59,7 @@ export default async function TransactionsPage() {
       currency: transaction.account.currency,
     },
     memo: transaction.memo,
+    importTag: transaction.importTag,
     splits: transaction.splits.map((split) => ({
       id: split.id,
       categoryId: split.categoryId,
@@ -84,7 +84,6 @@ export default async function TransactionsPage() {
     id: category.id,
     name: category.name,
     type: category.type,
-    parentId: category.parentId,
   }));
 
   return (

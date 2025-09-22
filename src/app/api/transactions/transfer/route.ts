@@ -37,6 +37,11 @@ export async function POST(request: Request) {
       id: true,
       name: true,
       currency: true,
+      investment: {
+        select: {
+          id: true,
+        },
+      },
     },
   });
 
@@ -89,6 +94,33 @@ export async function POST(request: Request) {
         splits: { include: { category: true } },
       },
     });
+
+    // Create investment transactions for investment accounts
+    if (fromAccount.investment) {
+      await tx.investmentTransaction.create({
+        data: {
+          userId: user.id,
+          investmentAccountId: fromAccount.investment.id,
+          type: "WITHDRAW",
+          amount: -Math.abs(amount),
+          occurredAt: transferDate,
+          notes: memo || `Transfer to ${toAccount.name}`,
+        },
+      });
+    }
+
+    if (toAccount.investment) {
+      await tx.investmentTransaction.create({
+        data: {
+          userId: user.id,
+          investmentAccountId: toAccount.investment.id,
+          type: "DEPOSIT",
+          amount: Math.abs(amount),
+          occurredAt: transferDate,
+          notes: memo || `Transfer from ${fromAccount.name}`,
+        },
+      });
+    }
 
     return { debit, credit };
   });

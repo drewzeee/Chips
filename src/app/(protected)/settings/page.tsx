@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "date-fns";
 import { RulesManager } from "@/components/settings/rules-manager";
 import { ClearTransactionsButton } from "@/components/settings/clear-transactions-button";
+import { DatabaseManagement } from "@/components/settings/database-management";
 
 export default async function SettingsPage() {
   const session = await getAuthSession();
@@ -118,6 +119,15 @@ export default async function SettingsPage() {
         categories={categoryOptions}
         accounts={accountOptions}
       />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Database Management</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <DatabaseManagement />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

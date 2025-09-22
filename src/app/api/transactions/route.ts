@@ -16,8 +16,9 @@ function buildFilters(params: URLSearchParams) {
   const from = params.get("from") ? new Date(params.get("from")!) : undefined;
   const to = params.get("to") ? new Date(params.get("to")!) : undefined;
   const uncategorized = params.get("uncategorized") === "true";
+  const hideValuationAdjustments = params.get("hideValuationAdjustments") === "true";
 
-  return { accountId, status, search, categoryId, from, to, uncategorized };
+  return { accountId, status, search, categoryId, from, to, uncategorized, hideValuationAdjustments };
 }
 
 export async function GET(request: Request) {
@@ -28,6 +29,9 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const filters = buildFilters(searchParams);
+
+  const limit = Number(searchParams.get("limit") ?? 200);
+  const offset = Number(searchParams.get("offset") ?? 0);
 
   const transactions = await prisma.transaction.findMany({
     where: {
@@ -45,8 +49,8 @@ export async function GET(request: Request) {
       ...(filters.search
         ? {
             OR: [
-              { description: { contains: filters.search } },
-              { merchant: { contains: filters.search } },
+              { description: { contains: filters.search, mode: "insensitive" } },
+              { merchant: { contains: filters.search, mode: "insensitive" } },
             ],
           }
         : {}),
@@ -65,6 +69,16 @@ export async function GET(request: Request) {
             },
           }
         : {}),
+      ...(filters.hideValuationAdjustments
+        ? {
+            NOT: {
+              description: {
+                contains: "Valuation Adjustment",
+                mode: "insensitive",
+              },
+            },
+          }
+        : {}),
     },
     include: {
       account: true,
@@ -75,7 +89,8 @@ export async function GET(request: Request) {
       },
     },
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-    take: Number(searchParams.get("limit") ?? 200),
+    skip: offset,
+    take: limit,
   });
 
   return NextResponse.json(transactions);
@@ -137,6 +152,8 @@ export async function POST(request: Request) {
       status: parsed.data.status,
       merchant: parsed.data.merchant ?? null,
       pending: parsed.data.status === "PENDING",
+      reference: parsed.data.reference ?? null,
+      importTag: parsed.data.importTag ?? null,
       splits:
         splits.length > 0
           ? {
@@ -194,10 +211,32 @@ export async function POST(request: Request) {
   return NextResponse.json(categorized ?? workingTransaction, { status: 201 });
 }
 
-export async function DELETE() {
+export async function DELETE(request: Request) {
   const user = await getAuthenticatedUser();
   if (!user?.id) {
     return unauthorizedResponse();
+  }
+
+  const { searchParams } = new URL(request.url);
+  const importTag = searchParams.get("importTag");
+
+  if (importTag) {
+    const transactions = await prisma.transaction.findMany({
+      where: { userId: user.id, importTag },
+      select: { id: true },
+    });
+
+    if (transactions.length === 0) {
+      return NextResponse.json({ deleted: 0, importTag });
+    }
+
+    const transactionIds = transactions.map((transaction) => transaction.id);
+    await prisma.$transaction([
+      prisma.transactionSplit.deleteMany({ where: { transactionId: { in: transactionIds }, userId: user.id } }),
+      prisma.transaction.deleteMany({ where: { id: { in: transactionIds }, userId: user.id } }),
+    ]);
+
+    return NextResponse.json({ deleted: transactions.length, importTag });
   }
 
   await prisma.$transaction([

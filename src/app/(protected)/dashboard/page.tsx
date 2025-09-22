@@ -22,6 +22,7 @@ import {
   type NetWorthRangeValue,
 } from "@/lib/dashboard";
 import { NetWorthRangeSelector } from "@/components/dashboard/net-worth-range-selector";
+import { calculateInvestmentAccountBalance } from "@/lib/investment-calculations";
 
 function sumValues(values: number[]) {
   return values.reduce((total, value) => total + value, 0);
@@ -96,11 +97,19 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     trendMonths = 1;
   }
 
-  const [accounts, transactionTotals, monthlySplits, uncategorizedTransactions, recentTransactions, preRangeSums, trendTransactions] =
+  const [accounts, investmentAccounts, transactionTotals, monthlySplits, uncategorizedTransactions, recentTransactions, preRangeSums, trendTransactions] =
     await Promise.all([
       prisma.financialAccount.findMany({
         where: { userId },
         orderBy: { name: "asc" },
+      }),
+      prisma.investmentAccount.findMany({
+        where: { userId },
+        include: {
+          trades: {
+            orderBy: { occurredAt: "desc" },
+          },
+        },
       }),
       prisma.transaction.groupBy({
         by: ["accountId"],
@@ -186,25 +195,61 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     transactionTotals.map((group) => [group.accountId, group._sum.amount ?? 0])
   );
 
-  const accountBalances = accounts.map((account) => {
-    const balance = account.openingBalance + (totalsMap.get(account.id) ?? 0);
-    return {
-      ...account,
-      balance,
-    };
-  });
+  // Create a map of financial account ID to investment account for quick lookup
+  const investmentAccountMap = new Map(
+    investmentAccounts.map((inv) => [inv.accountId, inv])
+  );
+
+  const accountBalances = await Promise.all(
+    accounts.map(async (account) => {
+      const investmentAccount = investmentAccountMap.get(account.id);
+
+      if (investmentAccount) {
+        // For investment accounts, use the proper calculation including market values
+        const accountBalance = await calculateInvestmentAccountBalance(
+          investmentAccount.id,
+          account.openingBalance,
+          investmentAccount.trades.map(trade => ({
+            type: trade.type,
+            assetType: trade.assetType,
+            symbol: trade.symbol,
+            quantity: trade.quantity?.toString() ?? null,
+            amount: trade.amount,
+            fees: trade.fees,
+          }))
+        );
+
+        // Convert from dollars to cents for consistent display
+        const balance = Math.round(accountBalance.totalValue * 100);
+
+        return {
+          ...account,
+          balance,
+        };
+      } else {
+        // For regular accounts, use simple transaction sum
+        const balance = account.openingBalance + (totalsMap.get(account.id) ?? 0);
+        return {
+          ...account,
+          balance,
+        };
+      }
+    })
+  );
 
   const totalNetWorth = sumValues(accountBalances.map((account) => account.balance));
 
   const incomeSplits = monthlySplits.filter(
     (split) =>
       split.category.type === "INCOME" &&
-      !(split.transaction.reference && split.transaction.reference.startsWith("transfer_"))
+      !(split.transaction.reference && split.transaction.reference.startsWith("transfer_")) &&
+      !(split.transaction.reference && split.transaction.reference.startsWith("investment_"))
   );
   const expenseSplits = monthlySplits.filter(
     (split) =>
       split.category.type === "EXPENSE" &&
-      !(split.transaction.reference && split.transaction.reference.startsWith("transfer_"))
+      !(split.transaction.reference && split.transaction.reference.startsWith("transfer_")) &&
+      !(split.transaction.reference && split.transaction.reference.startsWith("investment_"))
   );
 
   const monthlyIncome = sumValues(incomeSplits.map((split) => split.amount));
@@ -212,14 +257,18 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const uncategorizedExpense = sumValues(
     uncategorizedTransactions
       .filter((tx) =>
-        tx.amount < 0 && !(tx.reference && tx.reference.startsWith("transfer_"))
+        tx.amount < 0 &&
+        !(tx.reference && tx.reference.startsWith("transfer_")) &&
+        !(tx.reference && tx.reference.startsWith("investment_"))
       )
       .map((tx) => Math.abs(tx.amount))
   );
   const uncategorizedIncome = sumValues(
     uncategorizedTransactions
       .filter((tx) =>
-        tx.amount > 0 && !(tx.reference && tx.reference.startsWith("transfer_"))
+        tx.amount > 0 &&
+        !(tx.reference && tx.reference.startsWith("transfer_")) &&
+        !(tx.reference && tx.reference.startsWith("investment_"))
       )
       .map((tx) => tx.amount)
   );
@@ -291,9 +340,29 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   const labelFormat = trendMonths > 12 ? "MMM yy" : "MMM";
 
+  // Get investment valuations for the trend period
+  const investmentValuations = await prisma.investmentValuation.findMany({
+    where: {
+      userId,
+      asOf: {
+        gte: trendStart,
+      }
+    },
+    include: {
+      account: {
+        include: {
+          account: true
+        }
+      }
+    },
+    orderBy: { asOf: "asc" }
+  });
+
   let cursor = 0;
   const trendData = months.map((month) => {
     const monthEndDate = endOfMonth(month);
+
+    // Update traditional account balances based on transactions
     while (cursor < trendTransactions.length && trendTransactions[cursor].date <= monthEndDate) {
       const tx = trendTransactions[cursor];
       const current = baseBalances.get(tx.accountId) ?? 0;
@@ -301,7 +370,31 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       cursor += 1;
     }
 
-    const total = Array.from(baseBalances.values()).reduce((total, value) => total + value, 0);
+    // Calculate total from traditional accounts
+    let total = 0;
+    for (const account of accounts) {
+      if (!investmentAccountMap.has(account.id)) {
+        // Traditional account - use transaction-based balance
+        total += baseBalances.get(account.id) ?? account.openingBalance;
+      }
+    }
+
+    // Add investment account values for this month
+    for (const account of accounts) {
+      if (investmentAccountMap.has(account.id)) {
+        // Find the most recent valuation up to month end
+        const relevantValuations = investmentValuations.filter(
+          val => val.account.accountId === account.id && val.asOf <= monthEndDate
+        );
+
+        if (relevantValuations.length > 0) {
+          const latestValuation = relevantValuations[relevantValuations.length - 1];
+          total += latestValuation.value; // Investment valuations are already in cents
+        }
+        // If no valuation data for this investment account, it contributes 0
+      }
+    }
+
     return {
       label: format(month, labelFormat),
       value: total,
@@ -311,6 +404,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const averageNetCash = (() => {
     const monthsMap = new Map<string, { income: number; expense: number }>();
     for (const split of monthlySplits) {
+      // Skip investment-related transactions in average calculation
+      if (split.transaction.reference && split.transaction.reference.startsWith("investment_")) {
+        continue;
+      }
       const key = format(split.transaction.date, "yyyy-MM");
       const entry = monthsMap.get(key) ?? { income: 0, expense: 0 };
       if (split.category.type === "INCOME") {

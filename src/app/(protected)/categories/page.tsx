@@ -21,7 +21,6 @@ export default async function CategoriesPage() {
     type: category.type,
     color: category.color,
     icon: category.icon,
-    parentId: category.parentId,
     budgetLimit: category.budgetLimit ?? null,
     createdAt: category.createdAt.toISOString(),
   }));
