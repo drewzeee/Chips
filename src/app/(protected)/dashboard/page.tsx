@@ -507,7 +507,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 Set monthly budgets in the Categories tab to track progress.
               </p>
             )}
-            {budgetProgress.slice(0, 5).map((budget) => (
+            {budgetProgress.filter(budget => budget.spent > 0).map((budget) => (
               <div key={budget.id} className="space-y-1">
                 <div className="flex justify-between text-sm font-medium text-[var(--card-foreground)]">
                   <span>{budget.name}</span>
