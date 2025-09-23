@@ -1,0 +1,20 @@
+[Unit]
+Description=Chips Next.js Application
+After=network.target
+
+[Service]
+Type=simple
+User=andrew
+WorkingDirectory=/home/andrew/Chips
+Environment=NODE_ENV=production
+Environment=PATH=/usr/bin:/bin
+EnvironmentFile=/home/andrew/Chips/.env
+ExecStartPre=/usr/bin/npm run db:init
+ExecStart=/usr/bin/npm start
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
