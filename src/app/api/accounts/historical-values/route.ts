@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthenticatedUser, unauthorizedResponse } from "@/lib/auth-helpers";
-import { calculateInvestmentAccountBalance } from "@/lib/investment-calculations";
 import { startOfMonth, endOfMonth, eachMonthOfInterval, format } from "date-fns";
 
 export async function GET() {

@@ -390,7 +390,7 @@ export function RulesManager({ initialRules, categories, accounts }: RulesManage
           <CardTitle>Auto-categorisation rules</CardTitle>
           <div className="flex gap-2">
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={handleExport}
               disabled={rules.length === 0}
@@ -407,7 +407,7 @@ export function RulesManager({ initialRules, categories, accounts }: RulesManage
                 aria-label="Import rules file"
               />
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 disabled={importing}
               >

@@ -139,7 +139,7 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(results);
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: "Failed to process import file" },
       { status: 400 }

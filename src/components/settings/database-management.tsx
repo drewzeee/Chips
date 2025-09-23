@@ -111,7 +111,7 @@ export function DatabaseManagement() {
         <Button
           onClick={handleExport}
           disabled={exporting}
-          variant="outline"
+          variant="secondary"
           className="w-full sm:w-auto"
         >
           {exporting ? 'Exporting...' : 'Export All Data'}
@@ -134,7 +134,7 @@ export function DatabaseManagement() {
             aria-label="Import database file"
           />
           <Button
-            variant="outline"
+            variant="secondary"
             disabled={importing}
             className="w-full sm:w-auto"
           >

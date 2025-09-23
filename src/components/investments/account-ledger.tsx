@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } fro
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
-import type { AccountLedger, HoldingPosition } from "@/app/api/investments/accounts/[id]/ledger/route";
+import type { AccountLedger } from "@/app/api/investments/accounts/[id]/ledger/route";
 
 interface AccountLedgerProps {
   investmentAccountId: string;
@@ -194,11 +194,11 @@ export function AccountLedgerView({ investmentAccountId, onBack }: AccountLedger
                           <div>
                             <p className="font-medium text-[var(--foreground)]">{holding.symbol}</p>
                             <p className="text-xs text-[var(--muted-foreground)]">
-                              {getAssetDisplayName(holding.symbol, holding.assetType)}
+                              {holding.assetType === 'CASH' ? 'Cash' : getAssetDisplayName(holding.symbol, holding.assetType)}
                             </p>
                           </div>
                           <Badge tone={holding.assetType === 'CRYPTO' ? 'warning' : 'success'} className="text-xs">
-                            {holding.assetType === 'CRYPTO' ? 'Crypto' : 'Stock'}
+                            {holding.assetType === 'CRYPTO' ? 'Crypto' : holding.assetType === 'CASH' ? 'Cash' : 'Stock'}
                           </Badge>
                         </div>
                       </TableCell>
@@ -209,10 +209,10 @@ export function AccountLedgerView({ investmentAccountId, onBack }: AccountLedger
                         })}
                       </TableCell>
                       <TableCell>
-                        ${formatAssetPrice(holding.averageCost, holding.assetType)}
+                        ${holding.assetType === 'CASH' ? holding.averageCost.toFixed(2) : formatAssetPrice(holding.averageCost, holding.assetType)}
                       </TableCell>
                       <TableCell>
-                        ${formatAssetPrice(holding.currentPrice, holding.assetType)}
+                        ${holding.assetType === 'CASH' ? holding.currentPrice.toFixed(2) : formatAssetPrice(holding.currentPrice, holding.assetType)}
                       </TableCell>
                       <TableCell className="font-medium">
                         {formatCurrency(holding.marketValue * 100, ledger.currency)}

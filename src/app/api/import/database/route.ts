@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthenticatedUser, unauthorizedResponse } from "@/lib/auth-helpers";
+import type { InvestmentTransactionType, InvestmentAssetType } from "@/generated/prisma";
 
 export async function POST(request: Request) {
   const user = await getAuthenticatedUser();
@@ -20,7 +21,7 @@ export async function POST(request: Request) {
     }
 
     const importData = body.data;
-    let importStats = {
+    const importStats = {
       financialAccounts: 0,
       categories: 0,
       transactions: 0,
@@ -76,7 +77,7 @@ export async function POST(request: Request) {
       if (importData.financialAccounts) {
         for (const account of importData.financialAccounts) {
           try {
-            const createdAccount = await tx.financialAccount.upsert({
+            await tx.financialAccount.upsert({
               where: {
                 id: account.id
               },
@@ -164,7 +165,7 @@ export async function POST(request: Request) {
       if (importData.transactions) {
         for (const transaction of importData.transactions) {
           try {
-            const createdTransaction = await tx.transaction.upsert({
+            await tx.transaction.upsert({
               where: {
                 id: transaction.id
               },
@@ -326,8 +327,8 @@ export async function POST(request: Request) {
                 id: transaction.id
               },
               update: {
-                type: transaction.type,
-                assetType: transaction.assetType,
+                type: transaction.type as InvestmentTransactionType,
+                assetType: transaction.assetType as InvestmentAssetType,
                 symbol: transaction.symbol,
                 quantity: transaction.quantity,
                 pricePerUnit: transaction.pricePerUnit,
@@ -341,8 +342,8 @@ export async function POST(request: Request) {
                 userId: user.id,
                 investmentAccountId: transaction.investmentAccountId,
                 investmentAssetId: transaction.investmentAssetId,
-                type: transaction.type,
-                assetType: transaction.assetType,
+                type: transaction.type as InvestmentTransactionType,
+                assetType: transaction.assetType as InvestmentAssetType,
                 symbol: transaction.symbol,
                 quantity: transaction.quantity,
                 pricePerUnit: transaction.pricePerUnit,
@@ -365,7 +366,7 @@ export async function POST(request: Request) {
           try {
             await tx.investmentValuation.upsert({
               where: {
-                InvestmentValuation_account_asOf_key: {
+                investmentAccountId_asOf: {
                   investmentAccountId: valuation.investmentAccountId,
                   asOf: new Date(valuation.asOf)
                 }
@@ -394,7 +395,7 @@ export async function POST(request: Request) {
           try {
             await tx.investmentAssetValuation.upsert({
               where: {
-                InvestmentAssetValuation_asset_asOf_key: {
+                investmentAssetId_asOf: {
                   investmentAssetId: valuation.investmentAssetId,
                   asOf: new Date(valuation.asOf)
                 }
@@ -420,9 +421,17 @@ export async function POST(request: Request) {
       }
     });
 
-    const totalImported = Object.values(importStats).reduce((sum, val) => {
-      return typeof val === 'number' ? sum + val : sum;
-    }, 0) - importStats.skipped;
+    const totalImported = importStats.financialAccounts +
+      importStats.categories +
+      importStats.transactions +
+      importStats.transactionRules +
+      importStats.importTemplates +
+      importStats.budgetPeriods +
+      importStats.investmentAccounts +
+      importStats.investmentAssets +
+      importStats.investmentTransactions +
+      importStats.investmentValuations +
+      importStats.investmentAssetValuations;
 
     return NextResponse.json({
       success: true,

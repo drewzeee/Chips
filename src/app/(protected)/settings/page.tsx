@@ -26,12 +26,8 @@ export default async function SettingsPage() {
     prisma.transactionRule.findMany({
       where: { userId },
       include: {
-        category: {
-          select: { id: true, name: true, type: true },
-        },
-        account: {
-          select: { id: true, name: true, currency: true },
-        },
+        category: true,
+        account: true,
       },
       orderBy: { priority: "asc" },
     }),

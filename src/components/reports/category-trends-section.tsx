@@ -106,7 +106,7 @@ export function CategoryTrendsSection() {
           <div className="flex flex-wrap gap-2">
             <span className="text-sm text-gray-600 dark:text-gray-400">Quick ranges:</span>
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={() => handlePresetRange(3)}
               disabled={loading}
@@ -114,7 +114,7 @@ export function CategoryTrendsSection() {
               Last 3 months
             </Button>
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={() => handlePresetRange(6)}
               disabled={loading}
@@ -122,7 +122,7 @@ export function CategoryTrendsSection() {
               Last 6 months
             </Button>
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={() => handlePresetRange(12)}
               disabled={loading}

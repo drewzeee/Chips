@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@/generated/prisma";
+import type { InvestmentTransactionType, InvestmentAssetType } from "@/generated/prisma";
 import { prisma } from "@/lib/prisma";
 import {
   getAuthenticatedUser,
@@ -311,8 +312,8 @@ export async function POST(
         data: {
           userId: user.id,
           investmentAccountId: id,
-          type: transaction.type,
-          assetType: transaction.assetType,
+          type: transaction.type as InvestmentTransactionType,
+          assetType: transaction.assetType as InvestmentAssetType,
           symbol: transaction.symbol,
           quantity: transaction.quantity,
           pricePerUnit: transaction.pricePerUnit,

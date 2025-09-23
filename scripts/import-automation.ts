@@ -119,7 +119,7 @@ class CSVImportAutomation {
           );
           resolve(data);
         },
-        error: (error) => {
+        error: (error: Error) => {
           reject(new Error(`Failed to parse CSV: ${error.message}`));
         },
       });

@@ -250,7 +250,7 @@ export function CategoriesClient({ initialCategories }: { initialCategories: Cat
                   ))}
                 </Select>
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   size="sm"
                   onClick={handleExport}
                   disabled={categories.length === 0}
@@ -267,7 +267,7 @@ export function CategoriesClient({ initialCategories }: { initialCategories: Cat
                     aria-label="Import categories file"
                   />
                   <Button
-                    variant="outline"
+                    variant="secondary"
                     size="sm"
                     disabled={importing}
                   >

@@ -80,7 +80,7 @@ export function ValuationUpdater() {
           <Button
             onClick={handleUpdateValuations}
             disabled={isUpdating}
-            variant="outline"
+            variant="secondary"
             size="sm"
           >
             {isUpdating ? "Updating..." : "Update Now"}

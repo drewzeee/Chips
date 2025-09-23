@@ -280,7 +280,7 @@ export async function GET() {
       totalTrades: stats.reduce((sum, acc) => sum + acc._count.trades, 0)
     });
 
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "Failed to get valuation status" }, { status: 500 });
   }
 }

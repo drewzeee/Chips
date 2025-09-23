@@ -133,7 +133,7 @@ export async function PUT(request: Request) {
 
     // This approach processes users one by one directly in the database
     const totalUpdated = await prisma.$transaction(async (tx) => {
-      let updated = 0;
+      const updated = 0;
 
       // Get all investment accounts that might need valuation updates
       const investmentAccounts = await tx.investmentAccount.findMany({

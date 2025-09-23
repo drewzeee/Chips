@@ -124,10 +124,11 @@ interface ApiAssetResponse {
 }
 
 const accountFormSchema = investmentAccountSchema
-  .omit({ id: true })
+  .omit({ id: true, kind: true })
   .extend({
     openingBalance: z.string(),
     creditLimit: z.string().optional().nullable(),
+    kind: z.enum(["BROKERAGE", "WALLET"]),
   });
 
 const valuationFormSchema = z.object({
@@ -1021,7 +1022,7 @@ export function InvestmentsClient({
                           <Button
                             type="button"
                             size="sm"
-                            variant="default"
+                            variant="primary"
                             onClick={(event) => {
                               event.stopPropagation();
                               setLedgerView(account.investmentAccountId);
@@ -1491,7 +1492,7 @@ export function InvestmentsClient({
                         ))}
                         {selectedAccount.trades.length === 0 && (
                           <TableRow>
-                            <TableCell className="text-center text-sm text-[var(--muted-foreground)]" colSpan={6}>
+                            <TableCell className="text-center text-sm text-[var(--muted-foreground)]" {...({colSpan: 6})}>
                               No transactions recorded yet.
                             </TableCell>
                           </TableRow>

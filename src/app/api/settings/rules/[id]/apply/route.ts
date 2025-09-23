@@ -68,8 +68,8 @@ export async function POST(
     return NextResponse.json({ updated: 0, skipped: 0, transactionIds: [], skippedTransactionIds: [] });
   }
 
-  const actionable = [];
-  const skipped = [];
+  const actionable: typeof transactions = [];
+  const skipped: string[] = [];
 
   for (const transaction of transactions) {
     const matches = transactionMatchesRule({

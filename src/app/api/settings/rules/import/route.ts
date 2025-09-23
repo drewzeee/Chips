@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthenticatedUser, unauthorizedResponse } from "@/lib/auth-helpers";
 import { z } from "zod";
-import { parseAmountToCents } from "@/lib/utils";
 
 const importSchema = z.object({
   version: z.string(),
@@ -114,7 +113,7 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(results);
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: "Failed to process import file" },
       { status: 400 }
