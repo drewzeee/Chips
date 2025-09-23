@@ -2,16 +2,17 @@
 import { readFileSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 import Papa from 'papaparse';
-import { getAuthenticatedSession } from './auth-helper';
+import { PrismaClient } from '@prisma/client';
 
-interface AccountMapping {
-  filename: string;
-  accountId: string;
-  name: string;
-}
+const prisma = new PrismaClient();
 
 interface Config {
-  accountMappings: AccountMapping[];
+  accountMappings: Array<{
+    filename: string;
+    accountId: string;
+    name: string;
+    type: string;
+  }>;
   settings: {
     txsDirectory: string;
     apiBaseUrl: string;
@@ -26,14 +27,10 @@ function loadConfig(): Config {
     return JSON.parse(content);
   } catch (error) {
     console.error('❌ Could not load account-config.json:', error);
-    console.log('💡 Run "tsx configure-accounts.ts auto" to set up configuration');
+    console.log('💡 Run "tsx configure-accounts-direct.ts auto" to set up configuration');
     process.exit(1);
   }
 }
-
-const config = loadConfig();
-const TXS_DIR = config.settings.txsDirectory;
-const API_BASE_URL = config.settings.apiBaseUrl;
 
 interface TransactionRow {
   date: string;
@@ -41,7 +38,6 @@ interface TransactionRow {
   description: string;
   merchant?: string;
   reference?: string;
-  categoryId?: string;
 }
 
 function parseCSV(filePath: string): TransactionRow[] {
@@ -61,26 +57,101 @@ function parseCSV(filePath: string): TransactionRow[] {
   })).filter(row => row.date && !isNaN(row.amount));
 }
 
-async function importTransactions(accountId: string, transactions: TransactionRow[], sessionCookies: string) {
-  const payload = {
-    accountId,
-    rows: transactions
-  };
+function normalizeKey(date: Date, amount: number, description: string) {
+  return `${date.toISOString().slice(0, 10)}|${amount}|${description.trim().toLowerCase()}`;
+}
 
-  const response = await fetch(`${API_BASE_URL}/api/import`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Cookie': sessionCookies
+async function importTransactions(accountId: string, transactions: TransactionRow[], dryRun: boolean = false) {
+  const rows = transactions.map((row) => ({
+    ...row,
+    date: new Date(row.date),
+  }));
+
+  const minDate = new Date(Math.min(...rows.map((row) => row.date.getTime())));
+  const maxDate = new Date(Math.max(...rows.map((row) => row.date.getTime())));
+
+  const rangeStart = new Date(minDate);
+  rangeStart.setHours(0, 0, 0, 0);
+
+  const rangeEnd = new Date(maxDate);
+  rangeEnd.setHours(23, 59, 59, 999);
+
+  // Check for existing transactions
+  const existing = await prisma.transaction.findMany({
+    where: {
+      accountId,
+      date: {
+        gte: rangeStart,
+        lte: rangeEnd,
+      },
     },
-    body: JSON.stringify(payload)
+    select: {
+      id: true,
+      date: true,
+      amount: true,
+      description: true,
+    },
   });
 
-  if (!response.ok) {
-    throw new Error(`Import failed: ${response.status} ${response.statusText}`);
+  const existingSet = new Set(
+    existing.map((item) => normalizeKey(item.date, item.amount, item.description))
+  );
+
+  const duplicates: typeof rows = [];
+  const uniqueRows = [] as typeof rows;
+
+  for (const row of rows) {
+    const key = normalizeKey(row.date, row.amount, row.description);
+    if (existingSet.has(key)) {
+      duplicates.push(row);
+    } else {
+      uniqueRows.push(row);
+    }
   }
 
-  return await response.json();
+  if (dryRun) {
+    return {
+      duplicates: duplicates.length,
+      importable: uniqueRows.length,
+      total: rows.length,
+    };
+  }
+
+  if (uniqueRows.length === 0) {
+    return { imported: 0, duplicates: duplicates.length };
+  }
+
+  const importTag = `import_${Date.now()}`;
+
+  // Import new transactions
+  const createdTransactions = await prisma.$transaction(async (tx) => {
+    const created = [];
+    for (const row of uniqueRows) {
+      const transaction = await tx.transaction.create({
+        data: {
+          // You'll need to get the userId - either from env or find the first user
+          userId: process.env.USER_ID || (await tx.user.findFirst())?.id || 'default-user-id',
+          accountId,
+          date: row.date,
+          amount: row.amount,
+          description: row.description,
+          merchant: row.merchant ?? null,
+          reference: row.reference ?? null,
+          status: "CLEARED",
+          pending: false,
+          importTag,
+        },
+      });
+      created.push(transaction);
+    }
+    return created;
+  });
+
+  return {
+    imported: createdTransactions.length,
+    duplicates: duplicates.length,
+    importTag,
+  };
 }
 
 function getFilesModifiedToday(dirPath: string): string[] {
@@ -113,12 +184,11 @@ function getFilesModifiedToday(dirPath: string): string[] {
 
 async function main() {
   try {
-    console.log('🔐 Authenticating...');
-    const sessionCookies = await getAuthenticatedSession(API_BASE_URL);
+    const config = loadConfig();
 
     console.log('🔍 Scanning for transaction files modified today...');
 
-    const modifiedFiles = getFilesModifiedToday(TXS_DIR);
+    const modifiedFiles = getFilesModifiedToday(config.settings.txsDirectory);
 
     if (modifiedFiles.length === 0) {
       console.log('No transaction files modified today. Exiting.');
@@ -150,23 +220,7 @@ async function main() {
         console.log(`  Found ${transactions.length} transactions`);
 
         // Dry run first to check for duplicates
-        const dryRunResult = await fetch(`${API_BASE_URL}/api/import?dryRun=true`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Cookie': sessionCookies
-          },
-          body: JSON.stringify({
-            accountId: mapping.accountId,
-            rows: transactions
-          })
-        });
-
-        if (!dryRunResult.ok) {
-          throw new Error(`Dry run failed: ${dryRunResult.status}`);
-        }
-
-        const dryRun = await dryRunResult.json();
+        const dryRun = await importTransactions(mapping.accountId, transactions, true);
         console.log(`  Dry run: ${dryRun.importable} new, ${dryRun.duplicates} duplicates`);
 
         if (dryRun.importable === 0) {
@@ -175,7 +229,7 @@ async function main() {
         }
 
         // Actual import
-        const result = await importTransactions(mapping.accountId, transactions, sessionCookies);
+        const result = await importTransactions(mapping.accountId, transactions, false);
         console.log(`  ✅ Imported ${result.imported} transactions (${result.duplicates} duplicates skipped)`);
 
       } catch (error) {
@@ -188,6 +242,8 @@ async function main() {
   } catch (error) {
     console.error('❌ Import process failed:', error);
     process.exit(1);
+  } finally {
+    await prisma.$disconnect();
   }
 }
 

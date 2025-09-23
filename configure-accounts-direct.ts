@@ -1,6 +1,8 @@
 #!/usr/bin/env tsx
 import { readFileSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 interface AccountMapping {
   filename: string;
@@ -21,25 +23,19 @@ interface Config {
 
 const CONFIG_FILE = './account-config.json';
 
-import { getAuthenticatedSession } from './auth-helper';
-
-async function fetchAccounts(apiUrl: string): Promise<any[]> {
+async function fetchAccounts(): Promise<any[]> {
   try {
-    const sessionCookies = await getAuthenticatedSession(apiUrl);
-
-    const response = await fetch(`${apiUrl}/api/accounts`, {
-      headers: {
-        'Cookie': sessionCookies
-      }
+    const accounts = await prisma.financialAccount.findMany({
+      select: {
+        id: true,
+        name: true,
+        type: true,
+      },
     });
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch accounts: ${response.status}`);
-    }
-
-    return await response.json();
+    return accounts;
   } catch (error) {
-    console.error('❌ Could not fetch accounts from API:', error);
+    console.error('❌ Could not fetch accounts from database:', error);
     return [];
   }
 }
@@ -84,11 +80,11 @@ function showCurrentMappings(config: Config): void {
 async function autoMapAccounts(): Promise<void> {
   const config = loadConfig();
 
-  console.log('🔍 Fetching accounts from API...');
-  const accounts = await fetchAccounts(config.settings.apiBaseUrl);
+  console.log('🔍 Fetching accounts from database...');
+  const accounts = await fetchAccounts();
 
   if (accounts.length === 0) {
-    console.log('❌ No accounts found. Make sure your API is running and AUTH_TOKEN is set.');
+    console.log('❌ No accounts found in database.');
     return;
   }
 
@@ -179,15 +175,9 @@ function validateConfig(): void {
     isValid = false;
   }
 
-  if (!config.settings.apiBaseUrl) {
-    console.log('❌ Missing apiBaseUrl setting');
-    isValid = false;
-  }
-
   if (isValid) {
     console.log('✅ Configuration is valid!');
     console.log(`📁 Transactions directory: ${config.settings.txsDirectory}`);
-    console.log(`🌐 API URL: ${config.settings.apiBaseUrl}`);
     console.log(`📊 Mapped accounts: ${config.accountMappings.length}`);
   } else {
     console.log('\n❌ Configuration has issues that need to be resolved.');
@@ -197,41 +187,44 @@ function validateConfig(): void {
 async function main() {
   const command = process.argv[2] || 'status';
 
-  switch (command) {
-    case 'auto':
-      await autoMapAccounts();
-      break;
-    case 'manual':
-      manualMapping();
-      break;
-    case 'validate':
-      validateConfig();
-      break;
-    case 'status':
-      const config = loadConfig();
-      showCurrentMappings(config);
-      validateConfig();
-      break;
-    case 'help':
-      console.log('Account Configuration Tool');
-      console.log('=========================');
-      console.log('Usage: tsx configure-accounts.ts [command]');
-      console.log('');
-      console.log('Commands:');
-      console.log('  auto     - Automatically map accounts by fetching from API');
-      console.log('  manual   - Show manual configuration instructions');
-      console.log('  validate - Validate current configuration');
-      console.log('  status   - Show current mappings and validation (default)');
-      console.log('  help     - Show this help message');
-      console.log('');
-      console.log('Environment Variables:');
-      console.log('  LOGIN_EMAIL    - Your login email');
-      console.log('  LOGIN_PASSWORD - Your login password');
-      break;
-    default:
-      console.log(`Unknown command: ${command}`);
-      console.log('Use "tsx configure-accounts.ts help" for usage information');
-      process.exit(1);
+  try {
+    switch (command) {
+      case 'auto':
+        await autoMapAccounts();
+        break;
+      case 'manual':
+        manualMapping();
+        break;
+      case 'validate':
+        validateConfig();
+        break;
+      case 'status':
+        const config = loadConfig();
+        showCurrentMappings(config);
+        validateConfig();
+        break;
+      case 'help':
+        console.log('Account Configuration Tool (Direct Database Access)');
+        console.log('===================================================');
+        console.log('Usage: tsx configure-accounts-direct.ts [command]');
+        console.log('');
+        console.log('Commands:');
+        console.log('  auto     - Automatically map accounts by querying database');
+        console.log('  manual   - Show manual configuration instructions');
+        console.log('  validate - Validate current configuration');
+        console.log('  status   - Show current mappings and validation (default)');
+        console.log('  help     - Show this help message');
+        console.log('');
+        console.log('Environment Variables:');
+        console.log('  USER_ID - Your user ID (optional, will use first user if not set)');
+        break;
+      default:
+        console.log(`Unknown command: ${command}`);
+        console.log('Use "tsx configure-accounts-direct.ts help" for usage information');
+        process.exit(1);
+    }
+  } finally {
+    await prisma.$disconnect();
   }
 }
 

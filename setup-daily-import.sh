@@ -4,7 +4,7 @@
 # This script configures a cron job to run the transaction import daily
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-IMPORT_SCRIPT="$SCRIPT_DIR/import-transactions.ts"
+IMPORT_SCRIPT="$SCRIPT_DIR/import-transactions-direct.ts"
 LOG_FILE="$SCRIPT_DIR/logs/import-$(date +%Y%m).log"
 
 # Create logs directory if it doesn't exist

@@ -19,22 +19,26 @@ This guide will help you set up automated daily transaction imports from CSV fil
 npm install -g tsx
 ```
 
-### 2. Set Environment Variables
+### 2. Authentication Setup
 
-Create a `.env` file or export these variables:
+You have two options for authentication:
 
+#### Option A: Interactive Login (Recommended)
 ```bash
-# Required for API authentication
-export AUTH_TOKEN="your-jwt-token-here"
+tsx auth-helper.ts login
+```
+
+This will prompt for your email and password, then save a session that lasts 24 hours.
+
+#### Option B: Environment Variables
+```bash
+# Set your login credentials
+export LOGIN_EMAIL="your@email.com"
+export LOGIN_PASSWORD="yourpassword"
 
 # Optional - defaults to http://localhost:3000
 export API_BASE_URL="http://localhost:3000"
 ```
-
-**Getting your AUTH_TOKEN:**
-- Log into your application
-- Open browser developer tools → Application/Storage → Cookies
-- Copy the JWT token value
 
 ### 3. Configure Account Mappings
 
@@ -55,13 +59,19 @@ This will:
 tsx configure-accounts.ts validate
 ```
 
-### 5. Test the Import
+### 5. Test Authentication
+
+```bash
+tsx auth-helper.ts test
+```
+
+### 6. Test the Import
 
 ```bash
 ./setup-daily-import.sh test
 ```
 
-### 6. Setup Daily Automation
+### 7. Setup Daily Automation
 
 ```bash
 # Setup to run daily at 9:00 AM
@@ -87,7 +97,9 @@ project-root/
 ├── import-transactions.ts        # Main import script
 ├── configure-accounts.ts         # Account configuration helper
 ├── setup-daily-import.sh        # Automation setup script
-└── account-config.json          # Account mappings configuration
+├── auth-helper.ts               # Authentication helper
+├── account-config.json          # Account mappings configuration
+└── .session-cache               # Cached authentication session
 ```
 
 ## ⚙️ Configuration
@@ -132,6 +144,25 @@ Date,Time,Amount,Type,Description
 ```
 
 ## 🔧 Available Commands
+
+### Authentication Commands
+
+```bash
+# Interactive login (saves session for 24 hours)
+tsx auth-helper.ts login
+
+# Test current authentication
+tsx auth-helper.ts test
+
+# Show authentication status
+tsx auth-helper.ts status
+
+# Clear cached session
+tsx auth-helper.ts clear
+
+# Show help
+tsx auth-helper.ts help
+```
 
 ### Configuration Commands
 
@@ -229,8 +260,9 @@ crontab -l | grep import-transactions
 - Or manually edit `account-config.json`
 
 **❌ "Import failed: 401 Unauthorized"**
-- Check your `AUTH_TOKEN` is correct and not expired
-- Ensure you're logged into the application
+- Run `tsx auth-helper.ts login` to authenticate
+- Check that your credentials are correct
+- Ensure your session hasn't expired (lasts 24 hours)
 
 **❌ "Import failed: 400 Invalid account"**
 - Verify account IDs in `account-config.json` match your database
@@ -245,6 +277,9 @@ crontab -l | grep import-transactions
 Run with verbose logging:
 
 ```bash
+# Test authentication
+tsx auth-helper.ts test
+
 # Test with detailed output
 tsx import-transactions.ts
 
@@ -258,6 +293,12 @@ tsx configure-accounts.ts validate
 # Remove automation
 ./setup-daily-import.sh remove
 
+# Clear authentication
+tsx auth-helper.ts clear
+
+# Re-authenticate
+tsx auth-helper.ts login
+
 # Reconfigure accounts
 tsx configure-accounts.ts auto
 
@@ -267,8 +308,9 @@ tsx configure-accounts.ts auto
 
 ## 🔐 Security Notes
 
-- Store `AUTH_TOKEN` securely (use `.env` file, not in code)
-- Regularly rotate authentication tokens
+- Sessions are cached for 24 hours in `.session-cache` file
+- Store login credentials securely (use `.env` file, not in code)
+- Session cache file contains authentication cookies - keep secure
 - Monitor import logs for suspicious activity
 - Ensure CSV files don't contain sensitive data beyond transactions
 
