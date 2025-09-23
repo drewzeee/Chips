@@ -1,6 +1,6 @@
 "use client";
 
-import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 
 interface DataPoint {
   name: string;
@@ -50,20 +50,19 @@ export function CategoryPieChart({ data }: { data: DataPoint[] }) {
         <Tooltip
           formatter={tooltipFormatter}
           contentStyle={{
-            background: "var(--card)",
+            background: "var(--background)",
             border: `1px solid var(--border)`,
-            borderRadius: 12,
-            boxShadow: "0 20px 32px -24px rgba(15,23,42,0.45)",
-            color: "var(--card-foreground)",
+            borderRadius: 8,
+            boxShadow: "0 10px 25px -5px rgba(0,0,0,0.25)",
+            color: "var(--foreground)",
+            fontSize: "14px",
+            fontWeight: "500",
+            padding: "8px 12px",
           }}
-          labelStyle={{ color: "var(--muted-foreground)" }}
-        />
-        <Legend
-          verticalAlign="bottom"
-          height={36}
-          wrapperStyle={{
-            fontSize: "12px",
-            color: "var(--card-foreground)",
+          labelStyle={{
+            color: "var(--foreground)",
+            fontWeight: "600",
+            marginBottom: "4px",
           }}
         />
       </PieChart>
