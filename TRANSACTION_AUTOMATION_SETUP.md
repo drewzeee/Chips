@@ -1,14 +1,13 @@
 # Transaction Import Automation Setup
 
-This guide will help you set up automated daily transaction imports from CSV files to your application.
+This guide will help you set up automated daily transaction imports from CSV files directly to your database.
 
 ## 📋 Prerequisites
 
 - Node.js and npm/yarn installed
 - TSX installed globally: `npm install -g tsx`
-- Access to your application's database
+- Prisma database setup and accessible
 - CSV transaction files in the `txs/` directory
-- API running locally or accessible endpoint
 
 ## 🚀 Quick Start
 
@@ -19,59 +18,32 @@ This guide will help you set up automated daily transaction imports from CSV fil
 npm install -g tsx
 ```
 
-### 2. Authentication Setup
+### 2. Configure Account Mappings
 
-You have two options for authentication:
-
-#### Option A: Interactive Login (Recommended)
-```bash
-tsx auth-helper.ts login
-```
-
-This will prompt for your email and password, then save a session that lasts 24 hours.
-
-#### Option B: Environment Variables
-```bash
-# Set your login credentials
-export LOGIN_EMAIL="your@email.com"
-export LOGIN_PASSWORD="yourpassword"
-
-# Optional - defaults to http://localhost:3000
-export API_BASE_URL="http://localhost:3000"
-```
-
-### 3. Configure Account Mappings
-
-Run the automatic account mapper:
+Run the automatic account mapper (connects directly to your database):
 
 ```bash
-tsx configure-accounts.ts auto
+tsx configure-accounts-direct.ts auto
 ```
 
 This will:
-- Fetch your accounts from the API
+- Fetch your accounts directly from the database
 - Attempt to automatically map CSV files to accounts
 - Update the `account-config.json` file
 
-### 4. Verify Configuration
+### 3. Verify Configuration
 
 ```bash
-tsx configure-accounts.ts validate
+tsx configure-accounts-direct.ts validate
 ```
 
-### 5. Test Authentication
+### 4. Test the Import
 
 ```bash
-tsx auth-helper.ts test
+tsx import-transactions-direct.ts
 ```
 
-### 6. Test the Import
-
-```bash
-./setup-daily-import.sh test
-```
-
-### 7. Setup Daily Automation
+### 5. Setup Daily Automation
 
 ```bash
 # Setup to run daily at 9:00 AM
@@ -93,13 +65,11 @@ project-root/
 │   └── business/
 │       ├── BusinessSavings.csv
 │       └── ...
-├── logs/                         # Import logs (auto-created)
-├── import-transactions.ts        # Main import script
-├── configure-accounts.ts         # Account configuration helper
-├── setup-daily-import.sh        # Automation setup script
-├── auth-helper.ts               # Authentication helper
-├── account-config.json          # Account mappings configuration
-└── .session-cache               # Cached authentication session
+├── logs/                           # Import logs (auto-created)
+├── import-transactions-direct.ts  # Main import script (direct DB access)
+├── configure-accounts-direct.ts   # Account configuration helper (direct DB)
+├── setup-daily-import.sh          # Automation setup script
+└── account-config.json            # Account mappings configuration
 ```
 
 ## ⚙️ Configuration
@@ -145,42 +115,23 @@ Date,Time,Amount,Type,Description
 
 ## 🔧 Available Commands
 
-### Authentication Commands
-
-```bash
-# Interactive login (saves session for 24 hours)
-tsx auth-helper.ts login
-
-# Test current authentication
-tsx auth-helper.ts test
-
-# Show authentication status
-tsx auth-helper.ts status
-
-# Clear cached session
-tsx auth-helper.ts clear
-
-# Show help
-tsx auth-helper.ts help
-```
-
 ### Configuration Commands
 
 ```bash
-# Automatically map accounts from API
-tsx configure-accounts.ts auto
+# Automatically map accounts from database
+tsx configure-accounts-direct.ts auto
 
 # Show manual configuration instructions
-tsx configure-accounts.ts manual
+tsx configure-accounts-direct.ts manual
 
 # Validate current configuration
-tsx configure-accounts.ts validate
+tsx configure-accounts-direct.ts validate
 
 # Show current status and mappings
-tsx configure-accounts.ts status
+tsx configure-accounts-direct.ts status
 
 # Show help
-tsx configure-accounts.ts help
+tsx configure-accounts-direct.ts help
 ```
 
 ### Automation Commands
@@ -211,17 +162,17 @@ tsx configure-accounts.ts help
 
 ```bash
 # Run import manually
-tsx import-transactions.ts
+tsx import-transactions-direct.ts
 ```
 
 ## 🔍 How It Works
 
 1. **File Detection**: Scans the `txs/` directory for CSV files modified today
 2. **Account Mapping**: Maps CSV filenames to database account IDs using `account-config.json`
-3. **Duplicate Check**: Performs a dry run to identify new vs existing transactions
-4. **Import**: Imports only new transactions via the `/api/import` endpoint
-5. **Transfer Detection**: Automatically detects and marks transfers between accounts
-6. **Categorization**: Applies any configured categorization rules
+3. **Duplicate Check**: Queries database directly to identify new vs existing transactions
+4. **Import**: Imports only new transactions directly to database via Prisma
+5. **Transfer Detection**: Can be extended for automatic transfer detection
+6. **Categorization**: Can be extended for automatic categorization rules
 
 ## 📊 Monitoring
 
@@ -248,7 +199,7 @@ ls -la logs/
 crontab -l
 
 # View only transaction import jobs
-crontab -l | grep import-transactions
+crontab -l | grep import-transactions-direct
 ```
 
 ## 🚨 Troubleshooting
@@ -256,17 +207,17 @@ crontab -l | grep import-transactions
 ### Common Issues
 
 **❌ "No account mapping found for filename"**
-- Run `tsx configure-accounts.ts auto` to set up mappings
+- Run `tsx configure-accounts-direct.ts auto` to set up mappings
 - Or manually edit `account-config.json`
 
-**❌ "Import failed: 401 Unauthorized"**
-- Run `tsx auth-helper.ts login` to authenticate
-- Check that your credentials are correct
-- Ensure your session hasn't expired (lasts 24 hours)
+**❌ "Could not fetch accounts from database"**
+- Ensure your database is running and accessible
+- Check your Prisma connection settings
+- Verify database schema is up to date
 
-**❌ "Import failed: 400 Invalid account"**
+**❌ "Import failed: Invalid account"**
 - Verify account IDs in `account-config.json` match your database
-- Run `tsx configure-accounts.ts validate`
+- Run `tsx configure-accounts-direct.ts validate`
 
 **❌ "No transaction files modified today"**
 - Ensure your transaction pulling script updates file modification times
@@ -277,14 +228,14 @@ crontab -l | grep import-transactions
 Run with verbose logging:
 
 ```bash
-# Test authentication
-tsx auth-helper.ts test
-
 # Test with detailed output
-tsx import-transactions.ts
+tsx import-transactions-direct.ts
 
 # Check configuration
-tsx configure-accounts.ts validate
+tsx configure-accounts-direct.ts validate
+
+# Check database connection
+tsx configure-accounts-direct.ts status
 ```
 
 ### Reset Configuration
@@ -293,14 +244,8 @@ tsx configure-accounts.ts validate
 # Remove automation
 ./setup-daily-import.sh remove
 
-# Clear authentication
-tsx auth-helper.ts clear
-
-# Re-authenticate
-tsx auth-helper.ts login
-
 # Reconfigure accounts
-tsx configure-accounts.ts auto
+tsx configure-accounts-direct.ts auto
 
 # Setup automation again
 ./setup-daily-import.sh setup
@@ -308,26 +253,25 @@ tsx configure-accounts.ts auto
 
 ## 🔐 Security Notes
 
-- Sessions are cached for 24 hours in `.session-cache` file
-- Store login credentials securely (use `.env` file, not in code)
-- Session cache file contains authentication cookies - keep secure
+- Direct database access - ensure your database is properly secured
 - Monitor import logs for suspicious activity
 - Ensure CSV files don't contain sensitive data beyond transactions
+- Keep your `account-config.json` file secure as it contains account mappings
 
 ## 📞 Support
 
 If you encounter issues:
 
 1. Check the troubleshooting section above
-2. Verify your configuration with `tsx configure-accounts.ts validate`
+2. Verify your configuration with `tsx configure-accounts-direct.ts validate`
 3. Review import logs in the `logs/` directory
-4. Test manually with `./setup-daily-import.sh test`
+4. Test manually with `tsx import-transactions-direct.ts`
 
 ## 🎯 Advanced Configuration
 
 ### Custom CSV Parsers
 
-Modify `import-transactions.ts` if your CSV format differs:
+Modify `import-transactions-direct.ts` if your CSV format differs:
 
 ```typescript
 // Custom parsing logic
@@ -351,13 +295,13 @@ crontab -e
 Example schedules:
 ```bash
 # Every weekday at 9 AM
-0 9 * * 1-5 cd /path/to/project && tsx import-transactions.ts
+0 9 * * 1-5 cd /path/to/project && tsx import-transactions-direct.ts
 
 # Twice daily
-0 9,18 * * * cd /path/to/project && tsx import-transactions.ts
+0 9,18 * * * cd /path/to/project && tsx import-transactions-direct.ts
 
 # Weekly on Mondays
-0 9 * * 1 cd /path/to/project && tsx import-transactions.ts
+0 9 * * 1 cd /path/to/project && tsx import-transactions-direct.ts
 ```
 
 ---
