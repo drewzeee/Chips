@@ -9,7 +9,8 @@
     "lint": "eslint",
     "db:init": "prisma migrate deploy",
     "valuations:update": "tsx run-bitcoin-valuation.ts",
-    "valuations:cron": "curl -X POST http://localhost:3000/api/cron/valuations"
+    "valuations:cron": "curl -X POST http://localhost:3000/api/cron/valuations",
+    "import:auto": "tsx scripts/import-automation.ts ./txs ./import-config.json"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -41,6 +42,7 @@
     "eslint-config-next": "15.5.3",
     "prisma": "^6.16.2",
     "tailwindcss": "^4",
+    "tsx": "^4.20.5",
     "typescript": "^5"
   }
 }

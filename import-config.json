@@ -1,0 +1,37 @@
+{
+  "accounts": {
+    "TotalChecking": {
+      "templateName": "Chase Checking",
+      "accountId": "cmfsjjcyz000v8oj3l249qai1",
+      "notes": "Chase checking account CSV format"
+    },
+    "SapphireCC": {
+      "templateName": "Sapphire",
+      "accountId": "cmfu21tqu00h18oap5kxck9xh",
+      "notes": "Chase Sapphire credit card CSV format"
+    },
+    "FreedomCC": {
+      "templateName": "Sapphire",
+      "accountId": "cmfvxsfpw0001wqhit0bzsqy3",
+      "notes": "Chase Freedom credit card CSV format"
+    },
+    "AllySavings": {
+      "templateName": "Ally",
+      "accountId": "cmfu228ci00h38oapp4bl4apg",
+      "notes": "Ally savings account CSV format"
+    },
+    "Ink_Unlimited": {
+      "templateName": "Chase Business Credit Card Export",
+      "accountId": "",
+      "notes": "Chase Ink business credit card CSV format"
+    }
+  },
+  "settings": {
+    "autoProcessNew": true,
+    "backupProcessed": true,
+    "processedDir": "./txs/processed",
+    "errorDir": "./txs/errors",
+    "dryRunFirst": true,
+    "maxDuplicates": 50
+  }
+}
