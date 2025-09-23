@@ -1,5 +1,5 @@
 // Debug script for Gemini account specifically
-import { prisma } from './src/lib/prisma';
+import { prisma } from '../src/lib/prisma';
 
 async function debugGeminiAccount() {
   console.log("🔍 Debugging Gemini Account");

@@ -1,6 +1,6 @@
 // Test script for testing the investment balance calculation fix
-import { prisma } from './src/lib/prisma';
-import { calculateInvestmentAccountBalance } from './src/lib/investment-calculations';
+import { prisma } from '../src/lib/prisma';
+import { calculateInvestmentAccountBalance } from '../src/lib/investment-calculations';
 
 async function testBalanceFix() {
   console.log("🧪 Testing Investment Balance Fix");

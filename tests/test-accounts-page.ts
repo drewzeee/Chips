@@ -1,5 +1,5 @@
-import { prisma } from './src/lib/prisma';
-import { calculateInvestmentAccountBalance } from './src/lib/investment-calculations';
+import { prisma } from '../src/lib/prisma';
+import { calculateInvestmentAccountBalance } from '../src/lib/investment-calculations';
 
 async function testAccountsPage() {
   console.log('🧪 Testing Accounts Page Balance Calculation');

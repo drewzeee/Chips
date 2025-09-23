@@ -1,6 +1,6 @@
 // Test script for stock price fetching
-import { fetchStockPrices, isValidStockSymbol, getMarketStatus } from './src/lib/stock-prices';
-import { fetchAllAssetPrices, calculatePortfolioValue, formatAssetPrice, getAssetDisplayName } from './src/lib/asset-prices';
+import { fetchStockPrices, isValidStockSymbol, getMarketStatus } from '../src/lib/stock-prices';
+import { fetchAllAssetPrices, calculatePortfolioValue, formatAssetPrice, getAssetDisplayName } from '../src/lib/asset-prices';
 
 async function testStockPrices() {
   console.log("🧪 Testing Stock Price Integration");
