@@ -198,6 +198,78 @@ npm run valuations:update    # Update investment valuations
 npm run valuations:cron     # Test cron endpoint
 ```
 
+## 📊 Historical Data Management
+
+### Import Historical Valuations
+
+Import historical investment account valuations from CSV files:
+
+```bash
+# Import from CSV file
+npx tsx scripts/import-historical-valuations.ts --csv /path/to/your/file.csv
+
+# Import with overwrite (replace existing valuations)
+npx tsx scripts/import-historical-valuations.ts --csv /path/to/your/file.csv --overwrite
+
+# Import example data for testing
+npx tsx scripts/import-historical-valuations.ts --example
+```
+
+**CSV Format:**
+```csv
+date,accountName,value
+5/1/2022,Growth Fund,"70,605.52"
+5/2/2022,Growth Fund,"73,474.51"
+5/3/2022,Growth Fund,"72,477.44"
+```
+
+**Features:**
+- Supports quoted values with commas (e.g., `"70,605.52"`)
+- Handles M/D/YYYY date format automatically
+- Creates automatic valuation adjustment transactions
+- Duplicate detection with optional overwrite
+- Progress tracking and error reporting
+
+### Export Historical Valuations
+
+Export valuation data from the database to CSV or JSON:
+
+```bash
+# Export all valuations to CSV
+npx tsx scripts/export-historical-valuations.ts
+
+# Export specific account data
+npx tsx scripts/export-historical-valuations.ts --account "Growth Fund"
+
+# Export date range
+npx tsx scripts/export-historical-valuations.ts --start-date 1/1/2024 --end-date 12/31/2024
+
+# Export to custom file
+npx tsx scripts/export-historical-valuations.ts --output my_data.csv
+
+# Export as JSON
+npx tsx scripts/export-historical-valuations.ts --format json
+
+# Combine filters
+npx tsx scripts/export-historical-valuations.ts --account "Growth Fund" --start-date 1/1/2024 --format json
+```
+
+**Export Options:**
+- **Account filtering**: Filter by account name (partial match)
+- **Date filtering**: Start and/or end date ranges
+- **Output formats**: CSV or JSON
+- **Custom filenames**: Specify output file or auto-generate timestamped files
+- **Summary statistics**: Shows date ranges, record counts, and value ranges per account
+
+**Example Export Summary:**
+```
+📈 Export Summary by Account:
+Growth Fund:
+  📅 Date range: May 1, 2022 - Sep 22, 2025
+  📊 Records: 1,210
+  💰 Value range: $70,605 - $200,092
+```
+
 ## 🎯 Key Strengths
 
 - **🔒 Security First**: Secure authentication, input validation, SQL injection protection
