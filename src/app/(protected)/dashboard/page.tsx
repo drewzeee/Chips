@@ -153,7 +153,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         },
       }),
       prisma.transaction.findMany({
-        where: { userId },
+        where: {
+          userId,
+          description: {
+            not: "Valuation Adjustment"
+          }
+        },
         include: {
           account: true,
           splits: {
