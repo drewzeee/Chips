@@ -1,10 +1,15 @@
 import {
   addMonths,
+  addDays,
   differenceInMonths,
+  differenceInDays,
   endOfMonth,
+  endOfDay,
   format,
   startOfMonth,
+  startOfDay,
   subMonths,
+  subDays,
   isValid,
   parseISO,
 } from "date-fns";
@@ -68,8 +73,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   let trendStart = startOfMonth(subMonths(now, 5));
   let trendMonths = 6;
+  let useDailyIntervals = false;
 
-  if (rangeKey === "1y") {
+  if (rangeKey === "30d") {
+    trendStart = startOfDay(subDays(now, 29));
+    trendMonths = 30; // Actually days in this case
+    useDailyIntervals = true;
+  } else if (rangeKey === "1y") {
     trendMonths = 12;
     trendStart = startOfMonth(subMonths(now, trendMonths - 1));
   } else if (rangeKey === "2y") {
@@ -339,11 +349,17 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     baseBalances.set(group.accountId, current + (group._sum.amount ?? 0));
   }
 
-  const months = Array.from({ length: trendMonths }).map((_, index) =>
-    startOfMonth(addMonths(trendStart, index))
-  );
+  const periods = useDailyIntervals
+    ? Array.from({ length: trendMonths }).map((_, index) =>
+        addDays(trendStart, index)
+      )
+    : Array.from({ length: trendMonths }).map((_, index) =>
+        startOfMonth(addMonths(trendStart, index))
+      );
 
-  const labelFormat = trendMonths > 12 ? "MMM yy" : "MMM";
+  const labelFormat = useDailyIntervals
+    ? "MMM d"
+    : trendMonths > 12 ? "MMM yy" : "MMM";
 
   // Get investment valuations for the trend period
   const investmentValuations = await prisma.investmentValuation.findMany({
@@ -364,11 +380,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   });
 
   let cursor = 0;
-  const trendData = months.map((month) => {
-    const monthEndDate = endOfMonth(month);
+  const trendData = periods.map((period) => {
+    const periodEndDate = useDailyIntervals ? endOfDay(period) : endOfMonth(period);
 
     // Update traditional account balances based on transactions
-    while (cursor < trendTransactions.length && trendTransactions[cursor].date <= monthEndDate) {
+    while (cursor < trendTransactions.length && trendTransactions[cursor].date <= periodEndDate) {
       const tx = trendTransactions[cursor];
       const current = baseBalances.get(tx.accountId) ?? 0;
       baseBalances.set(tx.accountId, current + tx.amount);
@@ -384,12 +400,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       }
     }
 
-    // Add investment account values for this month
+    // Add investment account values for this period
     for (const account of accounts) {
       if (investmentAccountMap.has(account.id)) {
-        // Find the most recent valuation up to month end
+        // Find the most recent valuation up to period end
         const relevantValuations = investmentValuations.filter(
-          val => val.account.accountId === account.id && val.asOf <= monthEndDate
+          val => val.account.accountId === account.id && val.asOf <= periodEndDate
         );
 
         if (relevantValuations.length > 0) {
@@ -401,7 +417,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     }
 
     return {
-      label: format(month, labelFormat),
+      label: format(period, labelFormat),
       value: total,
     };
   });

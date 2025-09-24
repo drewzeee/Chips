@@ -1,4 +1,5 @@
 export const NET_WORTH_RANGE_OPTIONS = [
+  { label: "30D", value: "30d" },
   { label: "6M", value: "6m" },
   { label: "1Y", value: "1y" },
   { label: "2Y", value: "2y" },
