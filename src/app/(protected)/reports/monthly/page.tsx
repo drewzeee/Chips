@@ -285,23 +285,19 @@ export default async function MonthlyReportPage({
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Cash flow trend</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <CashflowChart data={chartData} />
-        </CardContent>
-      </Card>
-
-      <AccountBreakdownSection />
-
-      <CategoryTrendsSection />
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
+      <div className="grid gap-4 lg:grid-cols-5">
+        <Card className="lg:col-span-3">
           <CardHeader>
-            <CardTitle>Expense breakdown</CardTitle>
+            <CardTitle>Cash flow trend</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <CashflowChart data={chartData} />
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Monthly expense breakdown</CardTitle>
           </CardHeader>
           <CardContent className="max-h-[360px] overflow-y-auto">
             <Table>
@@ -324,31 +320,11 @@ export default async function MonthlyReportPage({
             </Table>
           </CardContent>
         </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Top merchants</CardTitle>
-          </CardHeader>
-          <CardContent className="max-h-[360px] overflow-y-auto">
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableHeaderCell>Merchant</TableHeaderCell>
-                  <TableHeaderCell className="text-right">Spend</TableHeaderCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {current.merchants.slice(0, 10).map((merchant) => (
-                  <TableRow key={`merchant-${merchant.name}`}>
-                    <TableCell>{merchant.name}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(merchant.amount)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
       </div>
+
+      <AccountBreakdownSection />
+
+      <CategoryTrendsSection />
     </div>
   );
 }

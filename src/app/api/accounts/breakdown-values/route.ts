@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthenticatedUser, unauthorizedResponse } from "@/lib/auth-helpers";
-import { startOfMonth, endOfMonth, eachMonthOfInterval, format } from "date-fns";
+import { startOfMonth, endOfMonth, eachMonthOfInterval, format, parseISO, isValid } from "date-fns";
 
 export async function GET(request: Request) {
   const user = await getAuthenticatedUser();
@@ -10,13 +10,37 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const months = parseInt(searchParams.get('months') || '12');
+
+  // Handle both old 'months' parameter and new 'from'/'to' parameters for backward compatibility
+  const monthsParam = searchParams.get('months');
+  const fromParam = searchParams.get('from');
+  const toParam = searchParams.get('to');
 
   try {
-    // Calculate date range
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setMonth(startDate.getMonth() - months);
+    let startDate: Date;
+    let endDate: Date;
+
+    if (fromParam && toParam) {
+      // Use new date-based parameters
+      const fromDate = parseISO(fromParam);
+      const toDate = parseISO(toParam);
+
+      if (!isValid(fromDate) || !isValid(toDate)) {
+        return NextResponse.json(
+          { error: "Invalid date format. Use YYYY-MM-DD format." },
+          { status: 400 }
+        );
+      }
+
+      startDate = startOfMonth(fromDate);
+      endDate = endOfMonth(toDate);
+    } else {
+      // Fallback to old months parameter
+      const months = parseInt(monthsParam || '12');
+      endDate = new Date();
+      startDate = new Date();
+      startDate.setMonth(startDate.getMonth() - months);
+    }
 
     // Get all financial accounts
     const accounts = await prisma.financialAccount.findMany({

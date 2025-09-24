@@ -144,7 +144,7 @@ export function CategoryTrendChart({ months, series }: CategoryTrendChartProps) 
 
           <ResponsiveContainer width="100%" height={320}>
             <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--secondary)" opacity={0.5} />
               <XAxis dataKey="label" stroke="#6b7280" fontSize={12} />
               <YAxis
                 stroke="#6b7280"
@@ -156,6 +156,14 @@ export function CategoryTrendChart({ months, series }: CategoryTrendChartProps) 
                   const category = byId.get(dataKey as string);
                   return [formatCurrency(value as number), category?.name ?? "Category"];
                 }}
+                contentStyle={{
+                  background: "var(--card)",
+                  border: `1px solid var(--border)`,
+                  borderRadius: 12,
+                  boxShadow: "0 20px 32px -24px rgba(15,23,42,0.45)",
+                  color: "var(--card-foreground)",
+                }}
+                labelStyle={{ color: "var(--muted-foreground)" }}
               />
               <Legend
                 formatter={(value) => byId.get(value as string)?.name ?? (value as string)}

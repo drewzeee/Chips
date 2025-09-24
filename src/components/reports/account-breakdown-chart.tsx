@@ -1,6 +1,10 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from "recharts";
+import { formatCurrency } from "@/lib/utils";
+
+const COLORS = ["#6366f1", "#ec4899", "#10b981", "#f97316", "#0ea5e9", "#8b5cf6"] as const;
 
 interface AccountBreakdownData {
   month: string;
@@ -14,131 +18,118 @@ interface AccountBreakdownChartProps {
   accountNames: string[];
 }
 
-// Generate highly distinct colors optimized for dark backgrounds
-const generateColors = (count: number): string[] => {
-  const colors = [
-    "#00ffff", // electric cyan
-    "#ff4757", // bright red
-    "#2ed573", // bright green
-    "#ffa502", // bright orange
-    "#3742fa", // electric blue
-    "#ff3838", // neon red
-    "#7bed9f", // mint
-    "#feca57", // yellow
-    "#ff6348", // tomato
-    "#70a1ff", // light blue
-    "#5352ed", // purple
-    "#ff4081", // hot pink
-    "#26a69a", // teal
-    "#ffb74d", // orange
-    "#42a5f5", // blue
-    "#ab47bc", // violet
-    "#ef5350", // red
-    "#66bb6a", // green
-    "#ffca28", // amber
-    "#29b6f6", // light blue
-  ];
-
-  if (count <= colors.length) {
-    return colors.slice(0, count);
-  }
-
-  // Generate more vibrant colors with maximum contrast
-  const extraColors = [];
-  for (let i = colors.length; i < count; i++) {
-    const hue = (i * 137.508) % 360;
-    extraColors.push(`hsl(${hue}, 100%, 70%)`); // Maximum saturation, bright
-  }
-
-  return [...colors, ...extraColors];
-};
-
 export function AccountBreakdownChart({ data, accountNames }: AccountBreakdownChartProps) {
-  const colors = generateColors(accountNames.length);
+  const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
 
-  const formatTooltip = (value: number, name: string) => {
-    return [
-      new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD",
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0
-      }).format(value),
-      name
-    ];
-  };
+  // Calculate account totals for sorting and display
+  const accountTotals = useMemo(() => {
+    return accountNames.map(accountName => {
+      const total = data.reduce((sum, monthData) => {
+        return sum + (monthData.accounts[accountName] || 0);
+      }, 0);
+      return { name: accountName, total };
+    }).sort((a, b) => b.total - a.total);
+  }, [data, accountNames]);
 
-  const formatYAxis = (value: number) => {
-    if (value >= 1000000) {
-      return `$${(value / 1000000).toFixed(1)}M`;
+  // Initialize with top 3 accounts
+  useEffect(() => {
+    if (accountTotals.length > 0 && selectedAccounts.length === 0) {
+      setSelectedAccounts(accountTotals.slice(0, Math.min(3, accountTotals.length)).map(a => a.name));
     }
-    if (value >= 1000) {
-      return `$${(value / 1000).toFixed(0)}k`;
-    }
-    return `$${value.toFixed(0)}`;
+  }, [accountTotals, selectedAccounts.length]);
+
+  // Transform data for the chart
+  const chartData = useMemo(() => {
+    return data.map(monthData => {
+      const point: Record<string, string | number> = { label: monthData.displayMonth };
+      selectedAccounts.forEach(accountName => {
+        point[accountName] = (monthData.accounts[accountName] || 0) * 100; // Convert to cents for formatting
+      });
+      return point;
+    });
+  }, [data, selectedAccounts]);
+
+  const handleToggleAccount = (accountName: string) => {
+    setSelectedAccounts(prev => {
+      if (prev.includes(accountName)) {
+        if (prev.length === 1) {
+          return prev; // keep at least one account visible
+        }
+        return prev.filter(existing => existing !== accountName);
+      }
+      const next = [...prev, accountName];
+      if (next.length > COLORS.length) {
+        next.shift();
+      }
+      return next;
+    });
   };
 
   return (
-    <ResponsiveContainer width="100%" height={400}>
-      <LineChart data={data}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
-        <XAxis
-          dataKey="displayMonth"
-          stroke="#6b7280"
-          fontSize={12}
-        />
-        <YAxis
-          stroke="#6b7280"
-          fontSize={12}
-          tickFormatter={formatYAxis}
-        />
-        <Tooltip
-          formatter={formatTooltip}
-          labelFormatter={(label) => `Month: ${label}`}
-          contentStyle={{
-            backgroundColor: "#1f2937",
-            border: "1px solid #374151",
-            borderRadius: "8px",
-            boxShadow: "0 10px 25px rgba(0, 0, 0, 0.5)",
-            color: "#f9fafb"
-          }}
-          itemStyle={{
-            color: "#f9fafb"
-          }}
-          labelStyle={{
-            color: "#e5e7eb",
-            fontWeight: "600"
-          }}
-        />
-        <Legend />
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        {accountTotals.slice(0, 10).map((account) => {
+          const selected = selectedAccounts.includes(account.name);
+          const colorIndex = Math.max(selectedAccounts.indexOf(account.name), 0);
+          const color = COLORS[colorIndex % COLORS.length];
+          return (
+            <button
+              key={account.name}
+              type="button"
+              onClick={() => handleToggleAccount(account.name)}
+              className={`rounded-full border px-3 py-1 text-sm transition ${
+                selected
+                  ? "border-transparent text-white"
+                  : "border-gray-300 text-gray-600 hover:border-gray-400"
+              }`}
+              style={selected ? { backgroundColor: color } : undefined}
+            >
+              <span className="font-medium">{account.name}</span>
+            </button>
+          );
+        })}
+      </div>
 
-        {accountNames.map((accountName, index) => (
-          <Line
-            key={accountName}
-            type="monotone"
-            dataKey={`accounts.${accountName}`}
-            stroke={colors[index]}
-            strokeWidth={4}
-            dot={{
-              r: 5,
-              fill: colors[index],
-              strokeWidth: 3,
-              stroke: "#1a1a1a",
-              filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.5))"
-            }}
-            activeDot={{
-              r: 8,
-              fill: colors[index],
-              strokeWidth: 4,
-              stroke: "#1a1a1a",
-              filter: "drop-shadow(0 3px 6px rgba(0,0,0,0.6))"
-            }}
-            name={accountName}
-            connectNulls={false}
-            strokeDasharray={index % 3 === 2 ? "8 4" : undefined} // Add dashed lines for every 3rd account
+      <ResponsiveContainer width="100%" height={320}>
+        <LineChart data={chartData}>
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--secondary)" opacity={0.5} />
+          <XAxis dataKey="label" stroke="#6b7280" fontSize={12} />
+          <YAxis
+            stroke="#6b7280"
+            fontSize={12}
+            tickFormatter={(value) => `$${Math.round((value as number) / 100)}`}
           />
-        ))}
-      </LineChart>
-    </ResponsiveContainer>
+          <Tooltip
+            formatter={(value, dataKey) => {
+              return [formatCurrency(value as number), dataKey as string];
+            }}
+            contentStyle={{
+              background: "var(--card)",
+              border: `1px solid var(--border)`,
+              borderRadius: 12,
+              boxShadow: "0 20px 32px -24px rgba(15,23,42,0.45)",
+              color: "var(--card-foreground)",
+            }}
+            labelStyle={{ color: "var(--muted-foreground)" }}
+          />
+          <Legend
+            formatter={(value) => value as string}
+          />
+          {selectedAccounts.map((accountName, index) => {
+            const color = COLORS[index % COLORS.length];
+            return (
+              <Line
+                key={accountName}
+                type="monotone"
+                dataKey={accountName}
+                stroke={color}
+                strokeWidth={2}
+                dot={false}
+              />
+            );
+          })}
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
   );
 }

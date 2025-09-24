@@ -54,18 +54,12 @@ export function CategoryPieChart({ data }: { data: DataPoint[] }) {
             border: `1px solid var(--border)`,
             borderRadius: 12,
             boxShadow: "0 20px 32px -24px rgba(15,23,42,0.45)",
+            color: "var(--card-foreground)",
             fontSize: "14px",
             fontWeight: "500",
             padding: "8px 12px",
           }}
-          labelStyle={{
-            color: "var(--foreground)",
-            fontWeight: "600",
-            marginBottom: "4px",
-          }}
-          itemStyle={{
-            color: "var(--foreground)",
-          }}
+          labelStyle={{ color: "var(--muted-foreground)" }}
         />
       </PieChart>
     </ResponsiveContainer>
