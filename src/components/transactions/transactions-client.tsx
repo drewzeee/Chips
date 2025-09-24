@@ -106,6 +106,7 @@ type Filters = {
   to: string;
   uncategorized: boolean;
   hideValuationAdjustments: boolean;
+  hideTransfers: boolean;
 };
 
 
@@ -147,6 +148,7 @@ export function TransactionsClient({
     to: "",
     uncategorized: false,
     hideValuationAdjustments: true,
+    hideTransfers: false,
   });
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -224,6 +226,7 @@ export function TransactionsClient({
     if (filters.to) params.append("to", filters.to);
     if (filters.uncategorized) params.append("uncategorized", "true");
     if (filters.hideValuationAdjustments) params.append("hideValuationAdjustments", "true");
+    if (filters.hideTransfers) params.append("hideTransfers", "true");
     params.append("limit", "100");
     params.append("offset", "0");
 
@@ -238,7 +241,7 @@ export function TransactionsClient({
       .finally(() => setLoading(false));
 
     return () => controller.abort();
-  }, [filters.accountId, filters.categoryId, filters.search, filters.from, filters.to, filters.uncategorized, filters.hideValuationAdjustments]);
+  }, [filters.accountId, filters.categoryId, filters.search, filters.from, filters.to, filters.uncategorized, filters.hideValuationAdjustments, filters.hideTransfers]);
 
   const loadMore = async () => {
     if (loadingMore || !hasMore) return;
@@ -252,6 +255,7 @@ export function TransactionsClient({
     if (filters.to) params.append("to", filters.to);
     if (filters.uncategorized) params.append("uncategorized", "true");
     if (filters.hideValuationAdjustments) params.append("hideValuationAdjustments", "true");
+    if (filters.hideTransfers) params.append("hideTransfers", "true");
     params.append("limit", "100");
     params.append("offset", transactions.length.toString());
 
@@ -719,6 +723,10 @@ export function TransactionsClient({
       if (filters.uncategorized && transaction.splits.length > 0) {
         continue;
       }
+      // Apply transfer filter - skip transactions that are transfers
+      if (filters.hideTransfers && transaction.reference?.startsWith("transfer_")) {
+        continue;
+      }
 
       count++;
       total += transaction.amount;
@@ -736,7 +744,7 @@ export function TransactionsClient({
       income,
       expenses,
     };
-  }, [transactions, filters.hideValuationAdjustments, filters.uncategorized]);
+  }, [transactions, filters.hideValuationAdjustments, filters.uncategorized, filters.hideTransfers]);
 
   return (
     <div className="space-y-6">
@@ -830,6 +838,18 @@ export function TransactionsClient({
                     Hide valuation adjustments
                   </Label>
                 </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    id="hideTransfers"
+                    type="checkbox"
+                    checked={filters.hideTransfers}
+                    onChange={(event) => setFilters((prev) => ({ ...prev, hideTransfers: event.target.checked }))}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <Label htmlFor="hideTransfers" className="text-sm font-normal">
+                    Hide transfers
+                  </Label>
+                </div>
               </div>
             </div>
           </div>
@@ -892,6 +912,10 @@ export function TransactionsClient({
                   }
                   // Apply uncategorized filter - only show transactions with no splits
                   if (filters.uncategorized && transaction.splits.length > 0) {
+                    return false;
+                  }
+                  // Apply transfer filter - hide transactions that are transfers
+                  if (filters.hideTransfers && transaction.reference?.startsWith("transfer_")) {
                     return false;
                   }
                   return true;
