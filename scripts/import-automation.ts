@@ -195,18 +195,25 @@ class CSVImportAutomation {
     return response.json();
   }
 
-  private async moveFile(srcPath: string, destDir: string): Promise<void> {
-    if (!this.config.settings.backupProcessed) return;
-
+  private async createLogFile(srcPath: string, destDir: string, status: 'success' | 'error', details?: any): Promise<void> {
     const filename = path.basename(srcPath);
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const destPath = path.join(destDir, `${timestamp}_${filename}`);
+    const logFilename = `${timestamp}_${filename.replace('.csv', '')}.log`;
+    const logPath = path.join(destDir, logFilename);
+
+    const logContent = {
+      timestamp: new Date().toISOString(),
+      filename,
+      filePath: srcPath,
+      status,
+      details
+    };
 
     try {
-      await fs.rename(srcPath, destPath);
-      console.log(`Moved ${filename} to ${destPath}`);
+      await fs.writeFile(logPath, JSON.stringify(logContent, null, 2));
+      console.log(`Created log file: ${logPath}`);
     } catch (error) {
-      console.warn(`Failed to move ${filename}:`, error);
+      console.warn(`Failed to create log file for ${filename}:`, error);
     }
   }
 
@@ -258,14 +265,14 @@ class CSVImportAutomation {
       const result = await this.importRows(accountConfig.accountId, preparedRows, false);
       console.log(`Import completed:`, result);
 
-      // Move to processed directory
-      await this.moveFile(filePath, this.config.settings.processedDir);
+      // Create success log
+      await this.createLogFile(filePath, this.config.settings.processedDir, 'success', result);
 
     } catch (error) {
       console.error(`Error processing ${filename}:`, error);
 
-      // Move to error directory
-      await this.moveFile(filePath, this.config.settings.errorDir);
+      // Create error log
+      await this.createLogFile(filePath, this.config.settings.errorDir, 'error', { error: error.message });
       throw error;
     }
   }

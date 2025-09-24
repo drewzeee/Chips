@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthenticatedUser, unauthorizedResponse } from "@/lib/auth-helpers";
-import { fetchAllAssetPrices, calculatePositionValue, type AssetPosition } from "@/lib/asset-prices";
+import { calculateInvestmentAccountBalance } from "@/lib/investment-calculations";
 import { upsertInvestmentAccountValuation } from "@/app/api/investments/helpers";
 
 interface ValuationResult {
@@ -50,18 +50,12 @@ export async function POST(request: Request) {
 
     console.log(`🔄 Starting automated valuation for user ${user.email}`);
 
-    // Get all investment accounts with their latest transactions
+    // Get all investment accounts with trades
     const investmentAccounts = await prisma.investmentAccount.findMany({
       where: { userId: user.id },
       include: {
         account: true,
-        trades: {
-          where: {
-            type: { in: ["BUY", "SELL"] },
-            symbol: { not: null }
-          },
-          orderBy: { occurredAt: "desc" }
-        },
+        trades: true,
         valuations: {
           orderBy: { asOf: "desc" },
           take: 1
@@ -81,145 +75,65 @@ export async function POST(request: Request) {
 
     console.log(`📊 Found ${investmentAccounts.length} investment accounts`);
 
-    // Collect all positions across accounts
-    const allPositions: AssetPosition[] = [];
-    const accountPositions = new Map<string, {
-      account: typeof investmentAccounts[0];
-      positions: AssetPosition[];
-    }>();
-
-    for (const account of investmentAccounts) {
-      const positionMap = new Map<string, { quantity: number; symbol: string; assetType: 'CRYPTO' | 'EQUITY' | null }>();
-
-      // Calculate current positions from trades
-      for (const trade of account.trades) {
-        if (!trade.symbol || !trade.assetType) continue;
-
-        const symbol = trade.symbol.toUpperCase();
-        const quantity = Number(trade.quantity || 0);
-        const assetType = trade.assetType as 'CRYPTO' | 'EQUITY';
-
-        const key = `${symbol}_${assetType}`;
-
-        if (trade.type === "BUY") {
-          const current = positionMap.get(key) || { quantity: 0, symbol, assetType };
-          positionMap.set(key, { ...current, quantity: current.quantity + quantity });
-        } else if (trade.type === "SELL") {
-          const current = positionMap.get(key) || { quantity: 0, symbol, assetType };
-          positionMap.set(key, { ...current, quantity: current.quantity - quantity });
-        }
-      }
-
-      // Convert to AssetPosition array with non-zero quantities
-      const positions: AssetPosition[] = [];
-      for (const [, position] of positionMap) {
-        if (position.quantity > 0 && position.assetType) {
-          const assetPosition: AssetPosition = {
-            symbol: position.symbol,
-            assetType: position.assetType,
-            quantity: position.quantity
-          };
-          positions.push(assetPosition);
-          allPositions.push(assetPosition);
-        }
-      }
-
-      if (positions.length > 0) {
-        accountPositions.set(account.id, { account, positions });
-      }
-    }
-
-    if (allPositions.length === 0) {
-      return NextResponse.json({
-        success: true,
-        processed: investmentAccounts.length,
-        updated: 0,
-        results: [],
-        errors: ["No active positions found"]
-      });
-    }
-
-    const cryptoSymbols = allPositions.filter(p => p.assetType === 'CRYPTO').map(p => p.symbol);
-    const stockSymbols = allPositions.filter(p => p.assetType === 'EQUITY').map(p => p.symbol);
-
-    console.log(`💰 Fetching prices - Crypto: [${cryptoSymbols.join(", ")}], Stocks: [${stockSymbols.join(", ")}]`);
-
-    // Fetch current prices for all asset types
-    const priceData = await fetchAllAssetPrices(allPositions);
-
-    const totalPricesFetched = Object.keys(priceData.cryptoPrices).length + Object.keys(priceData.stockPrices).length;
-    if (totalPricesFetched === 0) {
-      return NextResponse.json({
-        success: false,
-        processed: 0,
-        updated: 0,
-        results: [],
-        errors: ["Failed to fetch any asset prices"]
-      });
-    }
-
-    console.log(`📈 Retrieved prices - Crypto: ${Object.keys(priceData.cryptoPrices).length}, Stocks: ${Object.keys(priceData.stockPrices).length}`);
-
     const results: ValuationResult[] = [];
     const errors: string[] = [];
     let updated = 0;
 
     const asOf = new Date();
 
-    // Process each account
-    for (const [accountId, { account, positions }] of accountPositions) {
+    // Process each account using ledger-style calculation
+    for (const account of investmentAccounts) {
       try {
-        let totalAccountValue = 0;
-        const accountResults: ValuationResult[] = [];
+        // Use the same calculation logic as the ledger API
+        const balance = await calculateInvestmentAccountBalance(
+          account.id,
+          account.account.openingBalance,
+          account.trades.map(trade => ({
+            type: trade.type,
+            assetType: trade.assetType,
+            symbol: trade.symbol,
+            quantity: trade.quantity?.toString() || null,
+            amount: trade.amount,
+            fees: trade.fees
+          }))
+        );
 
-        // Calculate total value for this account
-        for (const position of positions) {
-          const pricedPosition = calculatePositionValue(position, priceData);
+        const currentValueInCents = Math.round(balance.totalValue * 100);
 
-          if (pricedPosition.pricePerUnit === 0) {
-            errors.push(`No price found for ${position.symbol} (${position.assetType}) in account ${account.account.name}`);
-            continue;
-          }
+        // Get previous valuation for comparison
+        const previousValue = account.valuations[0]?.value || account.account.openingBalance;
+        const change = currentValueInCents - previousValue;
+        const changePercent = previousValue > 0 ? (change / previousValue) * 100 : 0;
 
-          totalAccountValue += pricedPosition.totalValue;
+        // Create result entry showing cash and holdings breakdown
+        results.push({
+          investmentAccountId: account.id,
+          accountName: account.account.name,
+          assetSymbol: `Total (Cash: $${balance.cashBalance.toLocaleString()} + Holdings: $${balance.holdingsValue.toLocaleString()})`,
+          quantity: 1,
+          oldValue: previousValue / 100,
+          newValue: balance.totalValue,
+          change: change / 100,
+          changePercent,
+          pricePerUnit: balance.totalValue
+        });
 
-          // Get previous valuation for comparison
-          const previousValue = account.valuations[0]?.value || account.account.openingBalance;
-          const change = (pricedPosition.totalValue * 100) - previousValue; // Convert to cents
-          const changePercent = previousValue > 0 ? (change / previousValue) * 100 : 0;
+        // Update the investment account valuation using total balance
+        await prisma.$transaction((tx) =>
+          upsertInvestmentAccountValuation({
+            tx,
+            userId: user.id,
+            investmentAccountId: account.id,
+            financialAccountId: account.accountId,
+            openingBalance: account.account.openingBalance,
+            asOf,
+            value: currentValueInCents
+          })
+        );
 
-          accountResults.push({
-            investmentAccountId: accountId,
-            accountName: account.account.name,
-            assetSymbol: `${position.symbol} (${position.assetType})`,
-            quantity: position.quantity,
-            oldValue: previousValue / 100,
-            newValue: pricedPosition.totalValue,
-            change: change / 100,
-            changePercent,
-            pricePerUnit: pricedPosition.pricePerUnit
-          });
-        }
+        updated++;
 
-        if (totalAccountValue > 0) {
-          // Update the investment account valuation
-          await prisma.$transaction((tx) =>
-            upsertInvestmentAccountValuation({
-              tx,
-              userId: user.id,
-              investmentAccountId: accountId,
-              financialAccountId: account.accountId,
-              openingBalance: account.account.openingBalance,
-              asOf,
-              value: Math.round(totalAccountValue * 100) // Convert to cents
-            })
-          );
-
-          results.push(...accountResults);
-          updated++;
-
-          console.log(`✅ Updated ${account.account.name}: $${totalAccountValue.toLocaleString()}`);
-        }
+        console.log(`✅ Updated ${account.account.name}: $${balance.totalValue.toLocaleString()} (Cash: $${balance.cashBalance.toLocaleString()} + Holdings: $${balance.holdingsValue.toLocaleString()})`);
 
       } catch (error) {
         const errorMsg = `Failed to update account ${account.account.name}: ${error instanceof Error ? error.message : 'Unknown error'}`;
@@ -232,7 +146,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      processed: accountPositions.size,
+      processed: investmentAccounts.length,
       updated,
       results,
       errors

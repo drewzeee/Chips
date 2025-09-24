@@ -24,6 +24,7 @@ const CURRENCY_ID_MAP: Record<string, string> = {
   BAL: "balancer",
   SILO: "silo-finance",
   METIS: "metis-token",
+  VELO: "velodrome-finance",
   // Add more as needed
 };
 
