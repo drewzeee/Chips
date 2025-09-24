@@ -87,6 +87,17 @@ body {
   border-color: var(--border);
 }
 
+/* Ensure date picker calendar indicator is visible and clickable */
+input[type="month"]::-webkit-calendar-picker-indicator {
+  opacity: 1;
+  cursor: pointer;
+  filter: brightness(0) saturate(100%) invert(47%) sepia(8%) saturate(1193%) hue-rotate(199deg) brightness(95%) contrast(86%);
+}
+
+.dark input[type="month"]::-webkit-calendar-picker-indicator {
+  filter: brightness(0) saturate(100%) invert(66%) sepia(77%) saturate(4934%) hue-rotate(222deg) brightness(106%) contrast(95%);
+}
+
 /* Mobile-specific optimizations */
 @media (max-width: 768px) {
   /* Ensure touch targets are at least 44px */
@@ -104,6 +115,12 @@ body {
   /* Prevent zoom on input focus */
   input, select, textarea {
     font-size: 16px;
+  }
+
+  /* Ensure date picker works */
+  input[type="month"]::-webkit-calendar-picker-indicator {
+    opacity: 1;
+    cursor: pointer;
   }
 
   /* Smooth scrolling for mobile */

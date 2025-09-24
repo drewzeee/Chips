@@ -8,4 +8,4 @@ export const NET_WORTH_RANGE_OPTIONS = [
 
 export type NetWorthRangeValue = (typeof NET_WORTH_RANGE_OPTIONS)[number]["value"];
 
-export const DEFAULT_NET_WORTH_RANGE: NetWorthRangeValue = "6m";
+export const DEFAULT_NET_WORTH_RANGE: NetWorthRangeValue = "30d";
