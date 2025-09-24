@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
 
 const links = [
   { href: "/dashboard", label: "Dashboard" },
@@ -17,9 +18,53 @@ const links = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <aside className="hidden w-64 flex-col gap-8 border-r border-[var(--border)] bg-[var(--secondary)] px-7 py-8 backdrop-blur-2xl lg:flex">
+    <>
+      {/* Mobile menu button */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="fixed left-4 top-4 z-50 flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--card)] text-[var(--foreground)] shadow-lg lg:hidden"
+        aria-label="Toggle menu"
+      >
+        <svg
+          className="h-6 w-6"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          {isOpen ? (
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
+          ) : (
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 6h16M4 12h16M4 18h16"
+            />
+          )}
+        </svg>
+      </button>
+
+      {/* Mobile overlay */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside className={cn(
+        "fixed inset-y-0 left-0 z-40 w-64 flex-col gap-8 border-r border-[var(--border)] bg-[var(--secondary)] px-7 py-8 backdrop-blur-2xl transition-transform duration-200 ease-in-out lg:static lg:translate-x-0 lg:flex",
+        isOpen ? "flex translate-x-0" : "hidden -translate-x-full lg:flex"
+      )}>
       <div className="flex items-center gap-3">
         <Link
           href="/dashboard"
@@ -39,6 +84,7 @@ export function Sidebar() {
             <Link
               key={link.href}
               href={link.href}
+              onClick={() => setIsOpen(false)}
               className={cn(
                 "relative flex items-center rounded-xl px-4 py-2.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]",
                 active
@@ -52,5 +98,6 @@ export function Sidebar() {
         })}
       </nav>
     </aside>
+    </>
   );
 }

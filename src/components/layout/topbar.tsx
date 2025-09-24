@@ -17,24 +17,26 @@ export function Topbar({ user }: TopbarProps) {
   const [pending, startTransition] = useTransition();
 
   return (
-    <header className="sticky top-0 z-40 flex items-center justify-between border-b border-[var(--border)] bg-[color:color-mix(in_srgb,var(--background)_65%,transparent)] px-8 py-4 backdrop-blur-2xl">
-      <div>
+    <header className="sticky top-0 z-30 flex items-center justify-between border-b border-[var(--border)] bg-[color:color-mix(in_srgb,var(--background)_65%,transparent)] px-4 py-4 backdrop-blur-2xl pl-16 lg:px-8 lg:pl-8">
+      <div className="min-w-0 flex-1">
         <p className="text-xs uppercase tracking-[0.3em] text-[var(--muted-foreground)]">Welcome back</p>
-        <p className="text-xl font-semibold text-[var(--foreground)]">
+        <p className="truncate text-xl font-semibold text-[var(--foreground)]">
           {user?.name ?? user?.email ?? "User"}
         </p>
       </div>
-      <div className="flex items-center gap-3">
-        <DashboardDatePicker />
+      <div className="flex items-center gap-2 lg:gap-3">
+        <div className="hidden sm:block">
+          <DashboardDatePicker />
+        </div>
         <ThemeToggle />
         <Button
           variant="secondary"
           size="sm"
-          className="px-4"
+          className="px-2 text-xs lg:px-4 lg:text-sm"
           onClick={() => startTransition(() => signOut({ callbackUrl: "/login" }))}
           disabled={pending}
         >
-          {pending ? "Signing out" : "Sign out"}
+          {pending ? "..." : "Sign out"}
         </Button>
       </div>
     </header>

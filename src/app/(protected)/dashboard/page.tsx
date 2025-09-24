@@ -429,8 +429,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   })();
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardHeader>
             <CardTitle>Net Worth</CardTitle>
@@ -480,13 +480,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         </Card>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle>Net Worth Trend</CardTitle>
             <NetWorthRangeSelector />
           </CardHeader>
-          <CardContent className="h-[280px]">
+          <CardContent className="h-[240px] sm:h-[280px]">
             <NetWorthChart data={trendData} currency={accounts[0]?.currency ?? "USD"} />
           </CardContent>
         </Card>
@@ -501,7 +501,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         </Card>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>Budget Progress</CardTitle>
@@ -562,35 +562,40 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </Link>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableHeaderCell>Date</TableHeaderCell>
-                <TableHeaderCell>Description</TableHeaderCell>
-                <TableHeaderCell>Account</TableHeaderCell>
-                <TableHeaderCell>Category</TableHeaderCell>
-                <TableHeaderCell className="text-right">Amount</TableHeaderCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {recentTransactions.map((transaction) => {
-                const categoryName = transaction.splits[0]?.category?.name ?? "Uncategorized";
-                return (
-                  <TableRow key={transaction.id}>
-                    <TableCell>{format(transaction.date, "MMM d, yyyy")}</TableCell>
-                    <TableCell className="font-medium text-[var(--card-foreground)]">
-                      {transaction.description}
-                    </TableCell>
-                    <TableCell>{transaction.account.name}</TableCell>
-                    <TableCell>{categoryName}</TableCell>
-                    <TableCell className="text-right font-semibold">
-                      {formatCurrency(transaction.amount)}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableHeaderCell>Date</TableHeaderCell>
+                  <TableHeaderCell>Description</TableHeaderCell>
+                  <TableHeaderCell className="hidden sm:table-cell">Account</TableHeaderCell>
+                  <TableHeaderCell className="hidden md:table-cell">Category</TableHeaderCell>
+                  <TableHeaderCell className="text-right">Amount</TableHeaderCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {recentTransactions.map((transaction) => {
+                  const categoryName = transaction.splits[0]?.category?.name ?? "Uncategorized";
+                  return (
+                    <TableRow key={transaction.id}>
+                      <TableCell className="whitespace-nowrap">{format(transaction.date, "MMM d")}</TableCell>
+                      <TableCell className="font-medium text-[var(--card-foreground)] min-w-0">
+                        <div className="truncate">{transaction.description}</div>
+                        <div className="text-xs text-[var(--muted-foreground)] sm:hidden">
+                          {transaction.account.name} • {categoryName}
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell">{transaction.account.name}</TableCell>
+                      <TableCell className="hidden md:table-cell">{categoryName}</TableCell>
+                      <TableCell className="text-right font-semibold whitespace-nowrap">
+                        {formatCurrency(transaction.amount)}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -18,6 +18,11 @@ export const metadata: Metadata = {
   title: "Personal Financial Portal",
   description:
     "Self-hosted personal finance portal for budgeting and investment tracking.",
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+  },
 };
 
 export default function RootLayout({

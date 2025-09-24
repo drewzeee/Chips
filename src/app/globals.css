@@ -86,3 +86,29 @@ body {
 * {
   border-color: var(--border);
 }
+
+/* Mobile-specific optimizations */
+@media (max-width: 768px) {
+  /* Ensure touch targets are at least 44px */
+  button, [role="button"], input, select, textarea {
+    min-height: 44px;
+  }
+
+  /* Better tap targets for links */
+  a {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+
+  /* Prevent zoom on input focus */
+  input, select, textarea {
+    font-size: 16px;
+  }
+
+  /* Smooth scrolling for mobile */
+  html {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+}
