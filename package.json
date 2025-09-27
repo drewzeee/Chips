@@ -10,6 +10,7 @@
     "db:init": "prisma migrate deploy",
     "valuations:update": "tsx run-bitcoin-valuation.ts",
     "valuations:cron": "curl -X POST http://localhost:3000/api/cron/valuations",
+    "valuations:run": "tsx scripts/run-investment-valuations.ts",
     "import:auto": "tsx scripts/import-automation.ts ./txs ./import-config.json"
   },
   "dependencies": {

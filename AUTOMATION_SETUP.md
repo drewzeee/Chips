@@ -96,6 +96,30 @@ jobs:
 0 */6 * * * curl -X POST -H "Authorization: Bearer YOUR_SECRET_TOKEN" https://your-domain.com/api/cron/valuations
 ```
 
+### Option 3: Direct Node Script (No API Calls)
+
+- Add the new runner script to any scheduler that can invoke Node/tsx directly.
+- Useful when the app server is behind a firewall or you prefer to keep traffic off HTTP.
+
+```bash
+# Local cron example: run every night at 11:30pm
+30 23 * * * cd /path/to/project && npx tsx scripts/run-investment-valuations.ts >> logs/valuations.log 2>&1
+
+# Limit to a single user
+npx tsx scripts/run-investment-valuations.ts --user=USER_ID
+
+# Preview without writing to the database
+npx tsx scripts/run-investment-valuations.ts --dry-run
+```
+
+`package.json` now exposes a shortcut as well:
+
+```bash
+npm run valuations:run
+```
+
+The script shares the same calculation and adjustment logic as the API endpoint but executes it entirely inside the process, so no extra HTTP calls or `CRON_SECRET_TOKEN` headers are required.
+
 ---
 
 ## 🔐 Security Setup
