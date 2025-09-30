@@ -3,6 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from "recharts";
 import { formatCurrency } from "@/lib/utils";
+import {
+  tooltipContentStyle,
+  tooltipItemStyle,
+  tooltipLabelStyle,
+} from "../charts/tooltip-styles";
 
 const COLORS = ["#6366f1", "#ec4899", "#10b981", "#f97316", "#0ea5e9", "#8b5cf6"] as const;
 
@@ -103,14 +108,9 @@ export function AccountBreakdownChart({ data, accountNames }: AccountBreakdownCh
             formatter={(value, dataKey) => {
               return [formatCurrency(value as number), dataKey as string];
             }}
-            contentStyle={{
-              background: "var(--card)",
-              border: `1px solid var(--border)`,
-              borderRadius: 12,
-              boxShadow: "0 20px 32px -24px rgba(15,23,42,0.45)",
-              color: "var(--card-foreground)",
-            }}
-            labelStyle={{ color: "var(--muted-foreground)" }}
+            contentStyle={tooltipContentStyle}
+            labelStyle={tooltipLabelStyle}
+            itemStyle={tooltipItemStyle}
           />
           <Legend
             formatter={(value) => value as string}

@@ -1,6 +1,11 @@
 "use client";
 
 import { ResponsiveContainer, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from "recharts";
+import {
+  tooltipContentStyle,
+  tooltipItemStyle,
+  tooltipLabelStyle,
+} from "../charts/tooltip-styles";
 
 interface CashflowPoint {
   label: string;
@@ -24,14 +29,9 @@ export function CashflowChart({ data }: { data: CashflowPoint[] }) {
           formatter={(value: number) =>
             new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value / 100)
           }
-          contentStyle={{
-            background: "var(--card)",
-            border: `1px solid var(--border)`,
-            borderRadius: 12,
-            boxShadow: "0 20px 32px -24px rgba(15,23,42,0.45)",
-            color: "var(--card-foreground)",
-          }}
-          labelStyle={{ color: "var(--muted-foreground)" }}
+          contentStyle={tooltipContentStyle}
+          labelStyle={tooltipLabelStyle}
+          itemStyle={tooltipItemStyle}
         />
         <Legend />
         <Bar dataKey="income" fill="#22c55e" name="Income" />

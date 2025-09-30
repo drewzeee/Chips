@@ -1,6 +1,11 @@
 "use client";
 
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
+import {
+  tooltipContentStyle,
+  tooltipItemStyle,
+  tooltipLabelStyle,
+} from "../charts/tooltip-styles";
 
 interface DataPoint {
   name: string;
@@ -49,17 +54,9 @@ export function CategoryPieChart({ data }: { data: DataPoint[] }) {
         </Pie>
         <Tooltip
           formatter={tooltipFormatter}
-          contentStyle={{
-            background: "var(--card)",
-            border: `1px solid var(--border)`,
-            borderRadius: 12,
-            boxShadow: "0 20px 32px -24px rgba(15,23,42,0.45)",
-            color: "var(--card-foreground)",
-            fontSize: "14px",
-            fontWeight: "500",
-            padding: "8px 12px",
-          }}
-          labelStyle={{ color: "var(--muted-foreground)" }}
+          contentStyle={tooltipContentStyle}
+          labelStyle={tooltipLabelStyle}
+          itemStyle={tooltipItemStyle}
         />
       </PieChart>
     </ResponsiveContainer>

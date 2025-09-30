@@ -12,6 +12,11 @@ import {
   Line,
 } from "recharts";
 import { formatCurrency } from "@/lib/utils";
+import {
+  tooltipContentStyle,
+  tooltipItemStyle,
+  tooltipLabelStyle,
+} from "../charts/tooltip-styles";
 
 const COLORS = ["#6366f1", "#ec4899", "#10b981", "#f97316", "#0ea5e9", "#8b5cf6"] as const;
 
@@ -156,14 +161,9 @@ export function CategoryTrendChart({ months, series }: CategoryTrendChartProps) 
                   const category = byId.get(dataKey as string);
                   return [formatCurrency(value as number), category?.name ?? "Category"];
                 }}
-                contentStyle={{
-                  background: "var(--card)",
-                  border: `1px solid var(--border)`,
-                  borderRadius: 12,
-                  boxShadow: "0 20px 32px -24px rgba(15,23,42,0.45)",
-                  color: "var(--card-foreground)",
-                }}
-                labelStyle={{ color: "var(--muted-foreground)" }}
+                contentStyle={tooltipContentStyle}
+                labelStyle={tooltipLabelStyle}
+                itemStyle={tooltipItemStyle}
               />
               <Legend
                 formatter={(value) => byId.get(value as string)?.name ?? (value as string)}

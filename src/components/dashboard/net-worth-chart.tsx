@@ -9,6 +9,11 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import {
+  tooltipContentStyle,
+  tooltipItemStyle,
+  tooltipLabelStyle,
+} from "../charts/tooltip-styles";
 
 interface NetWorthChartProps {
   data: { label: string; value: number }[];
@@ -54,14 +59,9 @@ export function NetWorthChart({ data, currency = "USD" }: NetWorthChartProps) {
         />
         <Tooltip
           formatter={(value: number) => formatter(value, currency)}
-          contentStyle={{
-            background: "var(--card)",
-            border: `1px solid var(--border)`,
-            borderRadius: 12,
-            boxShadow: "0 20px 32px -24px rgba(15,23,42,0.45)",
-            color: "var(--card-foreground)",
-          }}
-          labelStyle={{ color: "var(--muted-foreground)" }}
+          contentStyle={tooltipContentStyle}
+          labelStyle={tooltipLabelStyle}
+          itemStyle={tooltipItemStyle}
         />
         <Area
           type="monotone"

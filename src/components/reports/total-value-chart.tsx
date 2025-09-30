@@ -1,6 +1,11 @@
 "use client";
 
 import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip } from "recharts";
+import {
+  tooltipContentStyle,
+  tooltipItemStyle,
+  tooltipLabelStyle,
+} from "../charts/tooltip-styles";
 import { format } from "date-fns";
 
 interface TotalValuePoint {
@@ -62,14 +67,9 @@ export function TotalValueChart({ data }: { data: TotalValuePoint[] }) {
               return dateStr;
             }
           }}
-          contentStyle={{
-            background: "var(--card)",
-            border: `1px solid var(--border)`,
-            borderRadius: 12,
-            boxShadow: "0 20px 32px -24px rgba(15,23,42,0.45)",
-            color: "var(--card-foreground)",
-          }}
-          labelStyle={{ color: "var(--muted-foreground)" }}
+          contentStyle={tooltipContentStyle}
+          labelStyle={tooltipLabelStyle}
+          itemStyle={tooltipItemStyle}
         />
         <Line
           type="monotone"
