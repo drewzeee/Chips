@@ -156,7 +156,12 @@ export const investmentTransactionSchema = z.object({
 export const investmentValuationSchema = z.object({
   investmentAccountId: z.string().min(1, "Account is required"),
   value: z.coerce.number().int(),
-  asOf: z.coerce.date(),
+  asOf: z.string().transform((str) => {
+    // Parse date string as local date to avoid timezone issues
+    // Input format: "YYYY-MM-DD"
+    const [year, month, day] = str.split('-').map(Number);
+    return new Date(year, month - 1, day); // month is 0-indexed
+  }),
 });
 
 export const investmentAssetSchema = z.object({
@@ -170,6 +175,11 @@ export const investmentAssetSchema = z.object({
 export const investmentAssetValuationSchema = z.object({
   investmentAssetId: z.string().min(1, "Asset is required"),
   value: z.coerce.number().int(),
-  asOf: z.coerce.date(),
+  asOf: z.string().transform((str) => {
+    // Parse date string as local date to avoid timezone issues
+    // Input format: "YYYY-MM-DD"
+    const [year, month, day] = str.split('-').map(Number);
+    return new Date(year, month - 1, day); // month is 0-indexed
+  }),
   quantity: z.string().optional().nullable(),
 });

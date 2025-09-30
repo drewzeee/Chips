@@ -80,10 +80,22 @@ export async function POST(request: Request) {
     let updated = 0;
 
     const asOf = new Date();
+    const today = new Date(asOf.getFullYear(), asOf.getMonth(), asOf.getDate());
 
     // Process each account using ledger-style calculation
     for (const account of investmentAccounts) {
       try {
+        // Check if a manual valuation already exists for today
+        const existingTodayValuation = await prisma.investmentValuation.findUnique({
+          where: {
+            investmentAccountId_asOf: {
+              investmentAccountId: account.id,
+              asOf: today
+            }
+          },
+          select: { createdAt: true, value: true }
+        });
+
         // Use the same calculation logic as the ledger API
         const balance = await calculateInvestmentAccountBalance(
           account.id,
@@ -104,6 +116,26 @@ export async function POST(request: Request) {
         const previousValue = account.valuations[0]?.value || account.account.openingBalance;
         const change = currentValueInCents - previousValue;
         const changePercent = previousValue > 0 ? (change / previousValue) * 100 : 0;
+
+        // Skip automation if manual valuation exists for today and values are different
+        if (existingTodayValuation && Math.abs(existingTodayValuation.value - currentValueInCents) > 100) {
+          console.log(`⏭️  Skipping ${account.account.name}: Manual valuation exists for today ($${(existingTodayValuation.value / 100).toLocaleString()}) - preserving manual entry`);
+
+          // Still create result entry to show what would have been updated
+          results.push({
+            investmentAccountId: account.id,
+            accountName: account.account.name,
+            assetSymbol: `Total (Cash: $${balance.cashBalance.toLocaleString()} + Holdings: $${balance.holdingsValue.toLocaleString()}) - MANUAL ENTRY PRESERVED`,
+            quantity: 1,
+            oldValue: existingTodayValuation.value / 100,
+            newValue: balance.totalValue,
+            change: (currentValueInCents - existingTodayValuation.value) / 100,
+            changePercent: existingTodayValuation.value > 0 ? ((currentValueInCents - existingTodayValuation.value) / existingTodayValuation.value) * 100 : 0,
+            pricePerUnit: balance.totalValue
+          });
+
+          continue;
+        }
 
         // Create result entry showing cash and holdings breakdown
         results.push({
@@ -126,7 +158,7 @@ export async function POST(request: Request) {
             investmentAccountId: account.id,
             financialAccountId: account.accountId,
             openingBalance: account.account.openingBalance,
-            asOf,
+            asOf: today,
             value: currentValueInCents
           })
         );
