@@ -63,7 +63,6 @@ const prisma = new PrismaClient();
       where: {
         userId: user.id,
         OR: [
-          { type: 'CASH' },
           { symbol: 'USD' },
           { name: { contains: 'cash', mode: 'insensitive' } },
           { name: { contains: 'money market', mode: 'insensitive' } }
@@ -105,7 +104,7 @@ const prisma = new PrismaClient();
 
     if (financialAccount) {
       console.log(`   Account Name: ${financialAccount.name}`);
-      console.log(`   Type: ${financialAccount.accountType}`);
+      console.log(`   Type: ${financialAccount.type}`);
       console.log(`   Opening Balance: $${(financialAccount.openingBalance / 100).toLocaleString()}`);
 
       // Calculate current balance

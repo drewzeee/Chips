@@ -113,10 +113,9 @@ const prisma = new PrismaClient();
 
     // Check if there are any cash-related investment assets
     const cashAssets = iraAccount.assets.filter(asset =>
-      asset.type === 'CASH' ||
       asset.name.toLowerCase().includes('cash') ||
       asset.symbol === 'USD' ||
-      asset.type === 'MONEY_MARKET'
+      asset.name.toLowerCase().includes('money market')
     );
 
     console.log(`\n💰 Cash Assets Found: ${cashAssets.length}`);
@@ -130,8 +129,7 @@ const prisma = new PrismaClient();
     // Look for any cash-related trades
     const cashTrades = iraAccount.trades.filter(trade =>
       trade.symbol === 'USD' ||
-      trade.symbol === 'CASH' ||
-      trade.assetType === 'CASH'
+      trade.symbol === 'CASH'
     );
 
     console.log(`\n💵 Cash-related trades: ${cashTrades.length}`);

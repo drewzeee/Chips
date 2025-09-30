@@ -272,7 +272,7 @@ class CSVImportAutomation {
       console.error(`Error processing ${filename}:`, error);
 
       // Create error log
-      await this.createLogFile(filePath, this.config.settings.errorDir, 'error', { error: error.message });
+      await this.createLogFile(filePath, this.config.settings.errorDir, 'error', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
