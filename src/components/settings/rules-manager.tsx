@@ -537,13 +537,13 @@ export function RulesManager({ initialRules, categories, accounts }: RulesManage
                     .sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name))
                     .map((rule) => (
                       <Fragment key={rule.id}>
-                        <tr className="transition-colors hover:bg-slate-100/80 dark:hover:bg-slate-900/60">
+                        <tr className="transition-colors hover:bg-[rgba(148,163,184,0.12)] dark:hover:bg-[rgba(148,163,184,0.08)]">
                           <td className="px-3 py-3">
-                            <div className="font-medium text-gray-900 dark:text-gray-100">{rule.name}</div>
+                            <div className="font-medium text-[var(--foreground)]">{rule.name}</div>
                           </td>
-                          <td className="px-3 py-3 text-gray-700 dark:text-gray-300">{rule.category.name}</td>
-                          <td className="px-3 py-3 text-gray-500 dark:text-gray-400">{rule.account?.name ?? "All"}</td>
-                          <td className="px-3 py-3 text-gray-500 dark:text-gray-400">
+                          <td className="px-3 py-3 text-[var(--muted-foreground)]">{rule.category.name}</td>
+                          <td className="px-3 py-3 text-[var(--muted-foreground)]">{rule.account?.name ?? "All"}</td>
+                          <td className="px-3 py-3 text-[var(--muted-foreground)]">
                             {rule.descriptionStartsWith && (
                               <div>Starts: {rule.descriptionStartsWith}</div>
                             )}
@@ -552,12 +552,12 @@ export function RulesManager({ initialRules, categories, accounts }: RulesManage
                             )}
                             {!rule.descriptionStartsWith && !rule.descriptionContains && <div>—</div>}
                           </td>
-                          <td className="px-3 py-3 text-gray-500 dark:text-gray-400">
+                          <td className="px-3 py-3 text-[var(--muted-foreground)]">
                             {rule.amountEquals != null
                               ? formatCurrency(Math.abs(rule.amountEquals), rule.account?.currency ?? "USD")
                               : "—"}
                           </td>
-                          <td className="px-3 py-3 text-gray-500 dark:text-gray-400">{rule.priority}</td>
+                          <td className="px-3 py-3 text-[var(--muted-foreground)]">{rule.priority}</td>
                           <td className="px-3 py-3 text-right space-x-2">
                             <Button
                               variant="ghost"
