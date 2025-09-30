@@ -537,7 +537,7 @@ export function RulesManager({ initialRules, categories, accounts }: RulesManage
                     .sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name))
                     .map((rule) => (
                       <Fragment key={rule.id}>
-                        <tr className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                        <tr className="transition-colors hover:bg-slate-100/80 dark:hover:bg-slate-900/60">
                           <td className="px-3 py-3">
                             <div className="font-medium text-gray-900 dark:text-gray-100">{rule.name}</div>
                           </td>
