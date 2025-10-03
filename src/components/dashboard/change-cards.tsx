@@ -38,7 +38,7 @@ export function ChangeCard({
           {isAsset ? (
             <>
               <p className={`text-2xl font-bold ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                ({isPositive ? '+' : ''}{changePercent}%)
+                {isPositive ? '+' : ''}{changePercent}%
               </p>
               <p className={`text-sm ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                 {isPositive ? '+' : ''}{formatCurrency(change, currency)}
@@ -50,7 +50,7 @@ export function ChangeCard({
                 {isPositive ? '+' : ''}{formatCurrency(change, currency)}
               </p>
               <p className={`text-sm ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                ({isPositive ? '+' : ''}{changePercent}%)
+                {isPositive ? '+' : ''}{changePercent}%
               </p>
             </>
           )}
