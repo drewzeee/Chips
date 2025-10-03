@@ -97,14 +97,17 @@ export function NetWorthChart({ data, currency = "USD" }: NetWorthChartProps) {
         <XAxis
           dataKey="label"
           stroke="var(--muted-foreground)"
-          fontSize={isMobile ? 10 : 12}
-          interval={isMobile ? "preserveStartEnd" : "preserveEnd"}
+          fontSize={isMobile ? 9 : 12}
+          interval={isMobile ? Math.floor(data.length / 4) : "preserveEnd"}
+          angle={isMobile ? -45 : 0}
+          textAnchor={isMobile ? "end" : "middle"}
+          height={isMobile ? 50 : 30}
         />
         <YAxis
           stroke="var(--muted-foreground)"
           fontSize={isMobile ? 10 : 12}
           tickFormatter={(value) => yAxisFormatter(value as number, currency)}
-          width={isMobile ? 60 : 68}
+          width={isMobile ? 55 : 60}
           domain={yAxisDomain}
           ticks={generateTicks()}
         />
