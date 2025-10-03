@@ -107,7 +107,7 @@ export function NetWorthChart({ data, currency = "USD" }: NetWorthChartProps) {
           stroke="var(--muted-foreground)"
           fontSize={isMobile ? 10 : 12}
           tickFormatter={(value) => yAxisFormatter(value as number, currency)}
-          width={isMobile ? 40 : 40}
+          width={isMobile ? 40 : 45}
           domain={yAxisDomain}
           ticks={generateTicks()}
         />
