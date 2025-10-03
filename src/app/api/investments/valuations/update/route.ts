@@ -151,8 +151,9 @@ export async function POST(request: Request) {
         });
 
         // Update the investment account valuation using total balance
-        await prisma.$transaction((tx) =>
-          upsertInvestmentAccountValuation({
+        await prisma.$transaction(async (tx) => {
+          // Update account-level valuation
+          await upsertInvestmentAccountValuation({
             tx,
             userId: user.id,
             investmentAccountId: account.id,
@@ -160,12 +161,57 @@ export async function POST(request: Request) {
             openingBalance: account.account.openingBalance,
             asOf: today,
             value: currentValueInCents
-          })
-        );
+          });
+
+          // Store individual asset valuations
+          for (const holding of balance.holdings) {
+            // Find or create the asset record
+            const asset = await tx.investmentAsset.upsert({
+              where: {
+                investmentAccountId_name: {
+                  investmentAccountId: account.id,
+                  name: holding.symbol
+                }
+              },
+              create: {
+                userId: user.id,
+                investmentAccountId: account.id,
+                name: holding.symbol,
+                symbol: holding.symbol,
+                type: holding.assetType
+              },
+              update: {
+                symbol: holding.symbol,
+                type: holding.assetType
+              }
+            });
+
+            // Store the asset valuation
+            await tx.investmentAssetValuation.upsert({
+              where: {
+                investmentAssetId_asOf: {
+                  investmentAssetId: asset.id,
+                  asOf: today
+                }
+              },
+              create: {
+                userId: user.id,
+                investmentAssetId: asset.id,
+                value: Math.round(holding.marketValue * 100), // Convert to cents
+                quantity: holding.quantity,
+                asOf: today
+              },
+              update: {
+                value: Math.round(holding.marketValue * 100),
+                quantity: holding.quantity
+              }
+            });
+          }
+        });
 
         updated++;
 
-        console.log(`✅ Updated ${account.account.name}: $${balance.totalValue.toLocaleString()} (Cash: $${balance.cashBalance.toLocaleString()} + Holdings: $${balance.holdingsValue.toLocaleString()})`);
+        console.log(`✅ Updated ${account.account.name}: $${balance.totalValue.toLocaleString()} (Cash: $${balance.cashBalance.toLocaleString()} + Holdings: $${balance.holdingsValue.toLocaleString()}) + ${balance.holdings.length} asset valuations`);
 
       } catch (error) {
         const errorMsg = `Failed to update account ${account.account.name}: ${error instanceof Error ? error.message : 'Unknown error'}`;

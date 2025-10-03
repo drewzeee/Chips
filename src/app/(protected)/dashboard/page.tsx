@@ -317,111 +317,61 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const largestAccountIncrease = accountsSortedByChange[0];
   const largestAccountDecrease = accountsSortedByChange[accountsSortedByChange.length - 1];
 
-  // Calculate 24-hour asset changes based on account valuation changes
-  // Get all current holdings across all investment accounts
-  const allInvestmentTransactions = await prisma.investmentTransaction.findMany({
-    where: {
-      userId,
-      symbol: { not: null },
-      assetType: { not: null },
-      type: { in: ['BUY', 'SELL'] },
-    },
-    select: {
-      symbol: true,
-      assetType: true,
-      type: true,
-      quantity: true,
-      investmentAccountId: true,
-    },
+  // Calculate 24-hour asset changes using stored asset valuations
+  // Get current asset valuations
+  const currentAssetValuations = await prisma.investmentAssetValuation.findMany({
+    where: { userId },
+    include: { asset: true },
+    orderBy: { asOf: "desc" },
   });
 
-  // Group transactions by symbol+assetType to calculate current holdings
-  const assetHoldingsMap = new Map<string, {
-    symbol: string;
-    assetType: 'CRYPTO' | 'EQUITY';
-    quantity: number;
-    accountIds: Set<string>;
-  }>();
+  // Get asset valuations from 24 hours ago
+  const oneDayAgoAssetValuations = await prisma.investmentAssetValuation.findMany({
+    where: {
+      userId,
+      asOf: {
+        lte: oneDayAgo,
+      },
+    },
+    include: { asset: true },
+    orderBy: { asOf: "desc" },
+  });
 
-  for (const tx of allInvestmentTransactions) {
-    if (!tx.symbol || !tx.assetType) continue;
-    const key = `${tx.symbol}_${tx.assetType}`;
-    const existing = assetHoldingsMap.get(key) || {
-      symbol: tx.symbol,
-      assetType: tx.assetType as 'CRYPTO' | 'EQUITY',
-      quantity: 0,
-      accountIds: new Set<string>(),
-    };
-
-    if (tx.type === 'BUY') {
-      existing.quantity += Number(tx.quantity || 0);
-    } else if (tx.type === 'SELL') {
-      existing.quantity -= Number(tx.quantity || 0);
+  // Group current valuations by asset ID (most recent only)
+  const currentAssetValuationsMap = new Map<string, { value: number; symbol: string; asOf: Date }>();
+  for (const valuation of currentAssetValuations) {
+    if (!currentAssetValuationsMap.has(valuation.investmentAssetId)) {
+      currentAssetValuationsMap.set(valuation.investmentAssetId, {
+        value: valuation.value,
+        symbol: valuation.asset.symbol || valuation.asset.name,
+        asOf: valuation.asOf,
+      });
     }
-    existing.accountIds.add(tx.investmentAccountId);
-    assetHoldingsMap.set(key, existing);
   }
 
-  // Get current prices for all assets
-  const { fetchAllAssetPrices, calculatePositionValue } = await import('@/lib/asset-prices');
+  // Group 24h ago valuations by asset ID (most recent before 24h ago)
+  const oneDayAgoAssetValuationsMap = new Map<string, number>();
+  for (const valuation of oneDayAgoAssetValuations) {
+    if (!oneDayAgoAssetValuationsMap.has(valuation.investmentAssetId)) {
+      oneDayAgoAssetValuationsMap.set(valuation.investmentAssetId, valuation.value);
+    }
+  }
 
-  const assetPositions = Array.from(assetHoldingsMap.values())
-    .filter(asset => asset.quantity > 0)
-    .map(asset => ({
-      symbol: asset.symbol,
-      assetType: asset.assetType,
-      quantity: asset.quantity,
-    }));
-
-  const priceData = assetPositions.length > 0
-    ? await fetchAllAssetPrices(assetPositions)
-    : { cryptoPrices: {}, stockPrices: {} };
-
-  // Calculate asset changes by looking at account valuation changes
-  // and attributing them proportionally to assets in those accounts
-  const assetChanges = Array.from(assetHoldingsMap.entries())
-    .map(([key, asset]) => {
-      if (asset.quantity <= 0) return null;
-
-      // Calculate current value
-      const currentPosition = calculatePositionValue({
-        symbol: asset.symbol,
-        assetType: asset.assetType,
-        quantity: asset.quantity,
-      }, priceData);
-
-      const currentValue = Math.round(currentPosition.totalValue * 100);
-
-      // Calculate the total valuation change for accounts holding this asset
-      let totalAccountChange = 0;
-      for (const accountId of asset.accountIds) {
-        const investmentAccount = Array.from(investmentAccountMap.entries())
-          .find(([finAccId, invAcc]) => invAcc.id === accountId);
-
-        if (investmentAccount) {
-          const [finAccId] = investmentAccount;
-          const accountChange = accountChanges.find(ac => ac.id === finAccId);
-          if (accountChange) {
-            totalAccountChange += accountChange.change;
-          }
-        }
-      }
-
-      // For assets held in multiple accounts, distribute the change
-      const accountCount = asset.accountIds.size;
-      const change = accountCount > 0 ? Math.round(totalAccountChange / accountCount) : 0;
+  // Calculate changes for each asset
+  const assetChanges = Array.from(currentAssetValuationsMap.entries())
+    .map(([assetId, current]) => {
+      const oneDayAgoValue = oneDayAgoAssetValuationsMap.get(assetId) ?? current.value;
+      const change = current.value - oneDayAgoValue;
 
       return {
-        symbol: asset.symbol,
-        assetType: asset.assetType,
-        currentValue,
-        oneDayAgoValue: currentValue - change,
+        assetId,
+        symbol: current.symbol,
+        currentValue: current.value,
+        oneDayAgoValue,
         change,
       };
     })
-    .filter((asset): asset is NonNullable<typeof asset> =>
-      asset !== null && asset.currentValue > 0
-    );
+    .filter(asset => asset.currentValue > 0);
 
   // Find assets with largest increase and decrease
   const assetsSortedByChange = [...assetChanges].sort((a, b) => b.change - a.change);
