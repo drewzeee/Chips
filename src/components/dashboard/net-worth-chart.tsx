@@ -69,7 +69,7 @@ export function NetWorthChart({ data, currency = "USD" }: NetWorthChartProps) {
 
   return (
     <ResponsiveContainer width="100%" height={260}>
-      <AreaChart data={data} margin={{ top: 10, left: 0, right: 0, bottom: 0 }}>
+      <AreaChart data={data} margin={{ top: 10, left: -20, right: 0, bottom: 0 }}>
         <defs>
           <linearGradient id="netWorthGradient" x1="0" y1="0" x2="0" y2="1">
             <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3} />
@@ -82,7 +82,7 @@ export function NetWorthChart({ data, currency = "USD" }: NetWorthChartProps) {
           stroke="var(--muted-foreground)"
           fontSize={12}
           tickFormatter={(value) => yAxisFormatter(value as number, currency)}
-          width={80}
+          width={55}
           domain={yAxisDomain}
           ticks={generateTicks()}
         />
