@@ -1110,60 +1110,6 @@ export function InvestmentsClient({
                       </p>
                     </div>
                   </div>
-
-                  <form className="grid gap-3 sm:grid-cols-3" onSubmit={onSubmitValuation}>
-                    <div className="space-y-1">
-                      <Label htmlFor="valuationValue">Total value</Label>
-                      <Input id="valuationValue" {...valuationForm.register("value")}
-                        placeholder="1000"
-                        disabled={valuationLoading}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="valuationAsOf">As of</Label>
-                      <Input id="valuationAsOf" type="date" {...valuationForm.register("asOf")}
-                        disabled={valuationLoading}
-                      />
-                    </div>
-                    <div className="flex items-end">
-                      <Button type="submit" disabled={valuationLoading}>
-                        Save valuation
-                      </Button>
-                    </div>
-                    {valuationError && (
-                      <div className="sm:col-span-3">
-                        <p className="text-sm text-[var(--destructive)]">{valuationError}</p>
-                      </div>
-                    )}
-                  </form>
-
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHead>
-                        <TableRow>
-                          <TableHeaderCell>Date</TableHeaderCell>
-                          <TableHeaderCell>Value</TableHeaderCell>
-                          <TableHeaderCell>Recorded</TableHeaderCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {selectedAccount.valuations.map((valuation) => (
-                          <TableRow key={valuation.id}>
-                            <TableCell>{format(new Date(valuation.asOf), "MMM d, yyyy")}</TableCell>
-                            <TableCell>{formatCurrency(valuation.value, selectedAccount.currency)}</TableCell>
-                            <TableCell>{format(new Date(valuation.createdAt), "MMM d, yyyy p")}</TableCell>
-                          </TableRow>
-                        ))}
-                        {selectedAccount.valuations.length === 0 && (
-                          <TableRow>
-                            <TableCell className="text-center text-sm text-[var(--muted-foreground)]" {...({colSpan: 3})}>
-                              No valuations recorded yet.
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
                 </CardContent>
               </Card>
 
@@ -1494,6 +1440,67 @@ export function InvestmentsClient({
                           <TableRow>
                             <TableCell className="text-center text-sm text-[var(--muted-foreground)]" {...({colSpan: 6})}>
                               No transactions recorded yet.
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Valuation Records</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <form className="grid gap-3 sm:grid-cols-3" onSubmit={onSubmitValuation}>
+                    <div className="space-y-1">
+                      <Label htmlFor="valuationValue">Total value</Label>
+                      <Input id="valuationValue" {...valuationForm.register("value")}
+                        placeholder="1000"
+                        disabled={valuationLoading}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="valuationAsOf">As of</Label>
+                      <Input id="valuationAsOf" type="date" {...valuationForm.register("asOf")}
+                        disabled={valuationLoading}
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <Button type="submit" disabled={valuationLoading}>
+                        Save valuation
+                      </Button>
+                    </div>
+                    {valuationError && (
+                      <div className="sm:col-span-3">
+                        <p className="text-sm text-[var(--destructive)]">{valuationError}</p>
+                      </div>
+                    )}
+                  </form>
+
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHead>
+                        <TableRow>
+                          <TableHeaderCell>Date</TableHeaderCell>
+                          <TableHeaderCell>Value</TableHeaderCell>
+                          <TableHeaderCell>Recorded</TableHeaderCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {selectedAccount.valuations.map((valuation) => (
+                          <TableRow key={valuation.id}>
+                            <TableCell>{format(new Date(valuation.asOf), "MMM d, yyyy")}</TableCell>
+                            <TableCell>{formatCurrency(valuation.value, selectedAccount.currency)}</TableCell>
+                            <TableCell>{format(new Date(valuation.createdAt), "MMM d, yyyy p")}</TableCell>
+                          </TableRow>
+                        ))}
+                        {selectedAccount.valuations.length === 0 && (
+                          <TableRow>
+                            <TableCell className="text-center text-sm text-[var(--muted-foreground)]" {...({colSpan: 3})}>
+                              No valuations recorded yet.
                             </TableCell>
                           </TableRow>
                         )}

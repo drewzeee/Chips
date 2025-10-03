@@ -66,6 +66,7 @@ export async function PUT(
       data: {
         accountId: parsed.data.accountId,
         date: parsed.data.date,
+        // Preserve originalDate - it should only be set on import and never changed
         amount: parsed.data.amount,
         description: parsed.data.description,
         memo: parsed.data.memo ?? null,

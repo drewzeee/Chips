@@ -78,21 +78,32 @@ export async function POST(request: Request) {
     where: {
       userId: userId,
       accountId: account.id,
-      date: {
-        gte: rangeStart,
-        lte: rangeEnd,
-      },
+      OR: [
+        {
+          date: {
+            gte: rangeStart,
+            lte: rangeEnd,
+          },
+        },
+        {
+          originalDate: {
+            gte: rangeStart,
+            lte: rangeEnd,
+          },
+        },
+      ],
     },
     select: {
       id: true,
       date: true,
+      originalDate: true,
       amount: true,
       description: true,
     },
   });
 
   const existingSet = new Set(
-    existing.map((item) => normalizeKey(item.date, item.amount, item.description))
+    existing.map((item) => normalizeKey(item.originalDate ?? item.date, item.amount, item.description))
   );
 
   const duplicates: typeof rows = [];
@@ -149,6 +160,7 @@ export async function POST(request: Request) {
           userId: userId,
           accountId: account.id,
           date: row.date,
+          originalDate: row.date,
           amount: row.amount,
           description: row.description,
           merchant: row.merchant ?? null,
