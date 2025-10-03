@@ -27,17 +27,6 @@ const formatter = (value: number, currency: string) =>
     maximumFractionDigits: 0,
   }).format(value / 100);
 
-const yAxisFormatter = (value: number, currency: string) => {
-  // value is in cents, convert to dollars, round to nearest thousand, then format
-  const dollars = value / 100;
-  const roundedDollars = Math.round(dollars / 1000) * 1000;
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency,
-    maximumFractionDigits: 0,
-  }).format(roundedDollars);
-};
-
 export function NetWorthChart({ data, currency = "USD" }: NetWorthChartProps) {
   const values = data.map(d => d.value);
   const minValue = Math.min(...values);
