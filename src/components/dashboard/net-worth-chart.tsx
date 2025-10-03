@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   AreaChart,
   Area,
@@ -39,6 +40,18 @@ const yAxisFormatter = (value: number, currency: string) => {
 };
 
 export function NetWorthChart({ data, currency = "USD" }: NetWorthChartProps) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   const values = data.map(d => d.value);
   const minValue = Math.min(...values);
   const maxValue = Math.max(...values);
@@ -67,9 +80,13 @@ export function NetWorthChart({ data, currency = "USD" }: NetWorthChartProps) {
     return ticks;
   };
 
+  const chartMargin = isMobile
+    ? { top: 10, left: 0, right: 10, bottom: 25 }
+    : { top: 10, left: 0, right: 10, bottom: 0 };
+
   return (
     <ResponsiveContainer width="100%" height={260}>
-      <AreaChart data={data} margin={{ top: 10, left: 0, right: 10, bottom: 25 }}>
+      <AreaChart data={data} margin={chartMargin}>
         <defs>
           <linearGradient id="netWorthGradient" x1="0" y1="0" x2="0" y2="1">
             <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3} />
