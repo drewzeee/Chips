@@ -94,12 +94,17 @@ export function NetWorthChart({ data, currency = "USD" }: NetWorthChartProps) {
           </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-        <XAxis dataKey="label" stroke="var(--muted-foreground)" fontSize={12} />
+        <XAxis
+          dataKey="label"
+          stroke="var(--muted-foreground)"
+          fontSize={isMobile ? 10 : 12}
+          interval={isMobile ? "preserveStartEnd" : "preserveEnd"}
+        />
         <YAxis
           stroke="var(--muted-foreground)"
-          fontSize={12}
+          fontSize={isMobile ? 10 : 12}
           tickFormatter={(value) => yAxisFormatter(value as number, currency)}
-          width={68}
+          width={isMobile ? 60 : 68}
           domain={yAxisDomain}
           ticks={generateTicks()}
         />
