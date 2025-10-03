@@ -109,7 +109,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   const oneDayAgo = subDays(now, 1);
 
-  const [accounts, investmentAccounts, transactionTotals, monthlySplits, uncategorizedTransactions, recentTransactions, preRangeSums, trendTransactions, oneDayAgoTransactions, oneDayAgoInvestmentValuations] =
+  const [accounts, investmentAccounts, transactionTotals, monthlySplits, uncategorizedTransactions, recentTransactions, preRangeSums, trendTransactions, oneDayAgoTransactions] =
     await Promise.all([
       prisma.financialAccount.findMany({
         where: { userId },
@@ -217,19 +217,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         },
         _sum: { amount: true },
       }),
-      // Investment valuations from 24 hours ago for asset comparison
-      prisma.investmentAssetValuation.findMany({
-        where: {
-          userId,
-          asOf: {
-            lte: oneDayAgo,
-          },
-        },
-        include: {
-          asset: true,
-        },
-        orderBy: { asOf: "desc" },
-      }),
     ]);
 
   const totalsMap = new Map(
@@ -335,52 +322,88 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const largestAccountIncrease = accountsSortedByChange[0];
   const largestAccountDecrease = accountsSortedByChange[accountsSortedByChange.length - 1];
 
-  // Calculate 24-hour asset changes
-  const currentAssetValuations = await prisma.investmentAssetValuation.findMany({
+  // Calculate 24-hour asset changes by comparing current holdings to 24h ago
+  // Get all investment assets with their current holdings
+  const allInvestmentAssets = await prisma.investmentAsset.findMany({
     where: { userId },
-    include: { asset: true },
-    orderBy: { asOf: "desc" },
+    include: {
+      account: {
+        include: {
+          account: true,
+        },
+      },
+      transactions: {
+        orderBy: { occurredAt: "asc" },
+      },
+    },
   });
 
-  // Group asset valuations by asset ID and get the most recent one
-  const currentAssetValuationsMap = new Map<string, { value: number; asOf: Date; name: string; symbol: string | null }>();
-  for (const valuation of currentAssetValuations) {
-    if (!currentAssetValuationsMap.has(valuation.investmentAssetId)) {
-      currentAssetValuationsMap.set(valuation.investmentAssetId, {
-        value: valuation.value,
-        asOf: valuation.asOf,
-        name: valuation.asset.name,
-        symbol: valuation.asset.symbol,
-      });
-    }
-  }
+  const assetChanges = await Promise.all(
+    allInvestmentAssets.map(async (asset) => {
+      // Calculate current position
+      const allTrades = asset.transactions.filter(
+        t => (t.type === 'BUY' || t.type === 'SELL') && t.symbol === asset.symbol
+      );
 
-  // Group 24-hour-ago valuations by asset ID
-  const oneDayAgoAssetValuationsMap = new Map<string, number>();
-  for (const valuation of oneDayAgoInvestmentValuations) {
-    if (!oneDayAgoAssetValuationsMap.has(valuation.investmentAssetId)) {
-      oneDayAgoAssetValuationsMap.set(valuation.investmentAssetId, valuation.value);
-    }
-  }
+      const currentQuantity = allTrades.reduce((qty, trade) => {
+        if (trade.type === 'BUY') return qty + Number(trade.quantity || 0);
+        if (trade.type === 'SELL') return qty - Number(trade.quantity || 0);
+        return qty;
+      }, 0);
 
-  const assetChanges = Array.from(currentAssetValuationsMap.entries())
-    .map(([assetId, current]) => {
-      const oneDayAgoValue = oneDayAgoAssetValuationsMap.get(assetId) ?? current.value;
-      const change = current.value - oneDayAgoValue;
+      // Calculate 24h ago position
+      const tradesUpToOneDayAgo = allTrades.filter(t => t.occurredAt <= oneDayAgo);
+      const oneDayAgoQuantity = tradesUpToOneDayAgo.reduce((qty, trade) => {
+        if (trade.type === 'BUY') return qty + Number(trade.quantity || 0);
+        if (trade.type === 'SELL') return qty - Number(trade.quantity || 0);
+        return qty;
+      }, 0);
+
+      // Skip if no holdings in either period
+      if (currentQuantity === 0 && oneDayAgoQuantity === 0) return null;
+
+      // Get current price from most recent trade or valuation
+      const { fetchAllAssetPrices, calculatePositionValue } = await import('@/lib/asset-prices');
+
+      const currentPriceData = await fetchAllAssetPrices([{
+        symbol: asset.symbol || asset.name,
+        assetType: asset.type,
+        quantity: currentQuantity
+      }]);
+
+      const currentPosition = calculatePositionValue({
+        symbol: asset.symbol || asset.name,
+        assetType: asset.type,
+        quantity: currentQuantity
+      }, currentPriceData);
+
+      const oneDayAgoPosition = calculatePositionValue({
+        symbol: asset.symbol || asset.name,
+        assetType: asset.type,
+        quantity: oneDayAgoQuantity
+      }, currentPriceData); // Use same price for both to isolate quantity changes
+
+      const currentValue = Math.round(currentPosition.totalValue * 100); // Convert to cents
+      const oneDayAgoValue = Math.round(oneDayAgoPosition.totalValue * 100);
+      const change = currentValue - oneDayAgoValue;
 
       return {
-        assetId,
-        name: current.name,
-        symbol: current.symbol,
-        currentValue: current.value,
+        assetId: asset.id,
+        name: asset.name,
+        symbol: asset.symbol,
+        currentValue,
         oneDayAgoValue,
         change,
       };
     })
-    .filter(asset => asset.currentValue > 0); // Only include assets with current value
+  );
+
+  const validAssetChanges = assetChanges.filter((asset): asset is NonNullable<typeof asset> =>
+    asset !== null && asset.currentValue > 0
+  );
 
   // Find assets with largest increase and decrease
-  const assetsSortedByChange = [...assetChanges].sort((a, b) => b.change - a.change);
+  const assetsSortedByChange = [...validAssetChanges].sort((a, b) => b.change - a.change);
   const largestAssetIncrease = assetsSortedByChange[0];
   const largestAssetDecrease = assetsSortedByChange[assetsSortedByChange.length - 1];
 
