@@ -62,7 +62,7 @@ export function Sidebar() {
 
       {/* Sidebar */}
       <aside className={cn(
-        "fixed inset-y-0 left-0 z-40 w-64 flex-col gap-8 border-r border-[var(--border)] bg-[var(--secondary)] px-7 py-8 backdrop-blur-2xl transition-transform duration-200 ease-in-out lg:static lg:translate-x-0 lg:flex",
+        "fixed inset-y-0 left-0 z-40 w-64 flex-col gap-8 border-r border-[var(--border)] bg-[var(--secondary)] px-7 py-8 backdrop-blur-2xl transition-transform duration-200 ease-in-out lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 lg:flex",
         isOpen ? "flex translate-x-0" : "hidden -translate-x-full lg:flex"
       )}>
       <div className="flex items-center gap-3">
