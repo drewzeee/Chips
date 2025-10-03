@@ -85,6 +85,13 @@ export function AccountLedgerView({ investmentAccountId, onBack }: AccountLedger
     return <span className={color}>{sign}{value.toFixed(2)}%</span>;
   };
 
+  const formatChange24h = (value: number) => {
+    const isPositive = value >= 0;
+    const color = isPositive ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400";
+    const sign = isPositive ? "+" : "";
+    return <span className={color}>{sign}{formatCurrency(Math.abs(value) * 100, ledger.currency)}</span>;
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -180,6 +187,8 @@ export function AccountLedgerView({ investmentAccountId, onBack }: AccountLedger
                     <TableHeaderCell>Quantity</TableHeaderCell>
                     <TableHeaderCell>Avg Cost</TableHeaderCell>
                     <TableHeaderCell>Current Price</TableHeaderCell>
+                    <TableHeaderCell>24h Change $</TableHeaderCell>
+                    <TableHeaderCell>24h Change %</TableHeaderCell>
                     <TableHeaderCell>Market Value</TableHeaderCell>
                     <TableHeaderCell>Cost Basis</TableHeaderCell>
                     <TableHeaderCell>Unrealized P&L</TableHeaderCell>
@@ -213,6 +222,12 @@ export function AccountLedgerView({ investmentAccountId, onBack }: AccountLedger
                       </TableCell>
                       <TableCell>
                         ${holding.assetType === 'CASH' ? holding.currentPrice.toFixed(2) : formatAssetPrice(holding.currentPrice, holding.assetType)}
+                      </TableCell>
+                      <TableCell>
+                        {formatChange24h(holding.change24h * holding.quantity)}
+                      </TableCell>
+                      <TableCell>
+                        {formatGainLossPercent(holding.changePercent24h)}
                       </TableCell>
                       <TableCell className="font-medium">
                         {formatCurrency(holding.marketValue * 100, ledger.currency)}

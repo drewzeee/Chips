@@ -12,9 +12,18 @@ export interface StockPriceMap {
   [symbol: string]: number;
 }
 
+export interface StockPriceChangeMap {
+  [symbol: string]: {
+    price: number;
+    change24h: number;
+    changePercent24h: number;
+  };
+}
+
 // Cache prices for 5 minutes to avoid rate limiting
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 let stockPriceCache: { data: StockPriceMap; timestamp: number } | null = null;
+let stockPriceChangeCache: { data: StockPriceChangeMap; timestamp: number } | null = null;
 
 // Common stock symbol transformations
 function normalizeStockSymbol(symbol: string): string {
@@ -104,6 +113,97 @@ export async function fetchStockPrices(symbols: string[]): Promise<StockPriceMap
   };
 
   return priceMap;
+}
+
+export async function fetchStockPricesWithChange(symbols: string[]): Promise<StockPriceChangeMap> {
+  // Check cache first
+  if (stockPriceChangeCache && Date.now() - stockPriceChangeCache.timestamp < CACHE_DURATION) {
+    const cachedPrices: StockPriceChangeMap = {};
+    for (const symbol of symbols) {
+      const normalizedSymbol = normalizeStockSymbol(symbol);
+      if (stockPriceChangeCache.data[normalizedSymbol] !== undefined) {
+        cachedPrices[normalizedSymbol] = stockPriceChangeCache.data[normalizedSymbol];
+      }
+    }
+    if (Object.keys(cachedPrices).length === symbols.length) {
+      return cachedPrices;
+    }
+  }
+
+  if (symbols.length === 0) {
+    return {};
+  }
+
+  const priceChangeMap: StockPriceChangeMap = {};
+  const errors: string[] = [];
+
+  // Fetch individual stock data with price change information
+  for (const symbol of symbols) {
+    try {
+      const normalizedSymbol = normalizeStockSymbol(symbol);
+      const response = await fetch(
+        `${YAHOO_FINANCE_API_BASE}/${normalizedSymbol}?interval=1d&range=2d&includePrePost=true`,
+        {
+          headers: {
+            "Accept": "application/json",
+            "User-Agent": "Mozilla/5.0 (compatible; Investment-Tracker/1.0)",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        errors.push(`Yahoo Finance API error for ${symbol}: ${response.status}`);
+        continue;
+      }
+
+      const data = await response.json();
+
+      // Extract current price and previous close from Yahoo Finance response
+      const chart = data?.chart?.result?.[0];
+      if (!chart) {
+        errors.push(`No chart data found for ${symbol}`);
+        continue;
+      }
+
+      const meta = chart.meta;
+      if (!meta) {
+        errors.push(`No metadata found for ${symbol}`);
+        continue;
+      }
+
+      // Get the current price and previous close
+      const currentPrice = meta.regularMarketPrice || meta.previousClose;
+      const previousClose = meta.chartPreviousClose || meta.previousClose;
+
+      if (typeof currentPrice === 'number' && currentPrice > 0) {
+        const change24h = currentPrice - (previousClose || currentPrice);
+        const changePercent24h = previousClose && previousClose > 0 ?
+          ((currentPrice - previousClose) / previousClose) * 100 : 0;
+
+        priceChangeMap[normalizedSymbol] = {
+          price: currentPrice,
+          change24h,
+          changePercent24h
+        };
+      } else {
+        errors.push(`Invalid price data for ${symbol}: ${currentPrice}`);
+      }
+    } catch (error) {
+      errors.push(`Failed to fetch price for ${symbol}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  if (errors.length > 0) {
+    console.warn("Stock price fetch errors:", errors);
+  }
+
+  // Update cache
+  stockPriceChangeCache = {
+    data: { ...stockPriceChangeCache?.data, ...priceChangeMap },
+    timestamp: Date.now(),
+  };
+
+  return priceChangeMap;
 }
 
 export function getUSDValueFromStock(amount: number, symbol: string, prices: StockPriceMap): number {

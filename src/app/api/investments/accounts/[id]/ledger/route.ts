@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthenticatedUser, unauthorizedResponse } from "@/lib/auth-helpers";
-import { fetchAllAssetPrices, calculatePositionValue, type AssetPosition } from "@/lib/asset-prices";
+import { fetchAllAssetPricesWithChange, calculatePositionValueWithChange, type AssetPosition } from "@/lib/asset-prices";
 
 export interface HoldingPosition {
   symbol: string;
@@ -13,6 +13,8 @@ export interface HoldingPosition {
   costBasis: number;
   unrealizedGainLoss: number;
   unrealizedGainLossPercent: number;
+  change24h: number;
+  changePercent24h: number;
 }
 
 export interface CashPosition {
@@ -156,14 +158,14 @@ export async function GET(
     quantity: h.quantity
   }));
 
-  const priceData = assetPositions.length > 0 ? await fetchAllAssetPrices(assetPositions) : {
+  const priceData = assetPositions.length > 0 ? await fetchAllAssetPricesWithChange(assetPositions) : {
     cryptoPrices: {},
     stockPrices: {}
   };
 
   // Calculate holding positions with current market data
   const holdings: HoldingPosition[] = activeHoldings.map(holding => {
-    const pricedPosition = calculatePositionValue({
+    const pricedPosition = calculatePositionValueWithChange({
       symbol: holding.symbol,
       assetType: holding.assetType,
       quantity: holding.quantity
@@ -184,7 +186,9 @@ export async function GET(
       marketValue,
       costBasis: costBasisInDollars,
       unrealizedGainLoss,
-      unrealizedGainLossPercent
+      unrealizedGainLossPercent,
+      change24h: pricedPosition.change24h,
+      changePercent24h: pricedPosition.changePercent24h
     };
   });
 

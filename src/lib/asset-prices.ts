@@ -1,6 +1,6 @@
 // Unified asset price fetching for both crypto and stocks
-import { fetchCryptoPrices, getUSDValue as getCryptoUSDValue, type PriceMap as CryptoPriceMap } from './crypto-prices';
-import { fetchStockPrices, getUSDValueFromStock, type StockPriceMap } from './stock-prices';
+import { fetchCryptoPrices, fetchCryptoPricesWithChange, getUSDValue as getCryptoUSDValue, type PriceMap as CryptoPriceMap, type PriceChangeMap as CryptoPriceChangeMap } from './crypto-prices';
+import { fetchStockPrices, fetchStockPricesWithChange, getUSDValueFromStock, type StockPriceMap, type StockPriceChangeMap } from './stock-prices';
 
 export interface AssetPosition {
   symbol: string;
@@ -13,9 +13,19 @@ export interface PricedPosition extends AssetPosition {
   totalValue: number;
 }
 
+export interface PricedPositionWithChange extends PricedPosition {
+  change24h: number;
+  changePercent24h: number;
+}
+
 export interface PriceData {
   cryptoPrices: CryptoPriceMap;
   stockPrices: StockPriceMap;
+}
+
+export interface PriceDataWithChange {
+  cryptoPrices: CryptoPriceChangeMap;
+  stockPrices: StockPriceChangeMap;
 }
 
 export async function fetchAllAssetPrices(positions: AssetPosition[]): Promise<PriceData> {
@@ -32,6 +42,25 @@ export async function fetchAllAssetPrices(positions: AssetPosition[]): Promise<P
   const [cryptoPrices, stockPrices] = await Promise.all([
     cryptoSymbols.length > 0 ? fetchCryptoPrices(cryptoSymbols) : Promise.resolve({}),
     stockSymbols.length > 0 ? fetchStockPrices(stockSymbols) : Promise.resolve({})
+  ]);
+
+  return { cryptoPrices, stockPrices };
+}
+
+export async function fetchAllAssetPricesWithChange(positions: AssetPosition[]): Promise<PriceDataWithChange> {
+  // Separate crypto and stock symbols
+  const cryptoSymbols = positions
+    .filter(p => p.assetType === 'CRYPTO')
+    .map(p => p.symbol);
+
+  const stockSymbols = positions
+    .filter(p => p.assetType === 'EQUITY')
+    .map(p => p.symbol);
+
+  // Fetch prices with change data in parallel
+  const [cryptoPrices, stockPrices] = await Promise.all([
+    cryptoSymbols.length > 0 ? fetchCryptoPricesWithChange(cryptoSymbols) : Promise.resolve({}),
+    stockSymbols.length > 0 ? fetchStockPricesWithChange(stockSymbols) : Promise.resolve({})
   ]);
 
   return { cryptoPrices, stockPrices };
@@ -56,6 +85,42 @@ export function calculatePositionValue(
     ...position,
     pricePerUnit,
     totalValue
+  };
+}
+
+export function calculatePositionValueWithChange(
+  position: AssetPosition,
+  priceData: PriceDataWithChange
+): PricedPositionWithChange {
+  let pricePerUnit = 0;
+  let totalValue = 0;
+  let change24h = 0;
+  let changePercent24h = 0;
+
+  if (position.assetType === 'CRYPTO') {
+    const cryptoData = priceData.cryptoPrices[position.symbol.toUpperCase()];
+    if (cryptoData) {
+      pricePerUnit = cryptoData.price;
+      totalValue = position.quantity * cryptoData.price;
+      change24h = cryptoData.change24h;
+      changePercent24h = cryptoData.changePercent24h;
+    }
+  } else if (position.assetType === 'EQUITY') {
+    const stockData = priceData.stockPrices[position.symbol.toUpperCase()];
+    if (stockData) {
+      pricePerUnit = stockData.price;
+      totalValue = position.quantity * stockData.price;
+      change24h = stockData.change24h;
+      changePercent24h = stockData.changePercent24h;
+    }
+  }
+
+  return {
+    ...position,
+    pricePerUnit,
+    totalValue,
+    change24h,
+    changePercent24h
   };
 }
 
