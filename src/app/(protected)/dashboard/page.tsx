@@ -16,6 +16,7 @@ import { prisma } from "@/lib/prisma";
 import { formatCurrency } from "@/lib/utils";
 import { NetWorthChart } from "@/components/dashboard/net-worth-chart";
 import { CategoryPieChart } from "@/components/dashboard/category-pie-chart";
+import { ChangeCard } from "@/components/dashboard/change-cards";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { getAuthSession } from "@/lib/auth";
@@ -106,7 +107,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     trendMonths = 1;
   }
 
-  const [accounts, investmentAccounts, transactionTotals, monthlySplits, uncategorizedTransactions, recentTransactions, preRangeSums, trendTransactions] =
+  const oneDayAgo = subDays(now, 1);
+
+  const [accounts, investmentAccounts, transactionTotals, monthlySplits, uncategorizedTransactions, recentTransactions, preRangeSums, trendTransactions, oneDayAgoTransactions, oneDayAgoInvestmentValuations] =
     await Promise.all([
       prisma.financialAccount.findMany({
         where: { userId },
@@ -203,6 +206,30 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           date: true,
         },
       }),
+      // Transactions up to 24 hours ago for account comparison
+      prisma.transaction.groupBy({
+        by: ["accountId"],
+        where: {
+          userId,
+          date: {
+            lte: oneDayAgo,
+          },
+        },
+        _sum: { amount: true },
+      }),
+      // Investment valuations from 24 hours ago for asset comparison
+      prisma.investmentAssetValuation.findMany({
+        where: {
+          userId,
+          asOf: {
+            lte: oneDayAgo,
+          },
+        },
+        include: {
+          asset: true,
+        },
+        orderBy: { asOf: "desc" },
+      }),
     ]);
 
   const totalsMap = new Map(
@@ -252,6 +279,110 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   );
 
   const totalNetWorth = sumValues(accountBalances.map((account) => account.balance));
+
+  // Calculate 24-hour account changes
+  const oneDayAgoTotalsMap = new Map(
+    oneDayAgoTransactions.map((group) => [group.accountId, group._sum.amount ?? 0])
+  );
+
+  const accountChanges = await Promise.all(
+    accountBalances.map(async (account) => {
+      const investmentAccount = investmentAccountMap.get(account.id);
+      let oneDayAgoBalance = 0;
+
+      if (investmentAccount) {
+        // For investment accounts, get trades up to 24 hours ago
+        const tradesUpToOneDayAgo = await prisma.investmentTransaction.findMany({
+          where: {
+            investmentAccountId: investmentAccount.id,
+            occurredAt: {
+              lte: oneDayAgo,
+            },
+          },
+          orderBy: { occurredAt: "asc" },
+        });
+
+        const accountBalanceOneDayAgo = await calculateInvestmentAccountBalance(
+          investmentAccount.id,
+          account.openingBalance,
+          tradesUpToOneDayAgo.map(trade => ({
+            type: trade.type,
+            assetType: trade.assetType,
+            symbol: trade.symbol,
+            quantity: trade.quantity?.toString() ?? null,
+            amount: trade.amount,
+            fees: trade.fees,
+          }))
+        );
+
+        oneDayAgoBalance = Math.round(accountBalanceOneDayAgo.totalValue * 100);
+      } else {
+        oneDayAgoBalance = account.openingBalance + (oneDayAgoTotalsMap.get(account.id) ?? 0);
+      }
+
+      const change = account.balance - oneDayAgoBalance;
+
+      return {
+        ...account,
+        change,
+        oneDayAgoBalance,
+      };
+    })
+  );
+
+  // Find accounts with largest increase and decrease
+  const accountsSortedByChange = [...accountChanges].sort((a, b) => b.change - a.change);
+  const largestAccountIncrease = accountsSortedByChange[0];
+  const largestAccountDecrease = accountsSortedByChange[accountsSortedByChange.length - 1];
+
+  // Calculate 24-hour asset changes
+  const currentAssetValuations = await prisma.investmentAssetValuation.findMany({
+    where: { userId },
+    include: { asset: true },
+    orderBy: { asOf: "desc" },
+  });
+
+  // Group asset valuations by asset ID and get the most recent one
+  const currentAssetValuationsMap = new Map<string, { value: number; asOf: Date; name: string; symbol: string | null }>();
+  for (const valuation of currentAssetValuations) {
+    if (!currentAssetValuationsMap.has(valuation.investmentAssetId)) {
+      currentAssetValuationsMap.set(valuation.investmentAssetId, {
+        value: valuation.value,
+        asOf: valuation.asOf,
+        name: valuation.asset.name,
+        symbol: valuation.asset.symbol,
+      });
+    }
+  }
+
+  // Group 24-hour-ago valuations by asset ID
+  const oneDayAgoAssetValuationsMap = new Map<string, number>();
+  for (const valuation of oneDayAgoInvestmentValuations) {
+    if (!oneDayAgoAssetValuationsMap.has(valuation.investmentAssetId)) {
+      oneDayAgoAssetValuationsMap.set(valuation.investmentAssetId, valuation.value);
+    }
+  }
+
+  const assetChanges = Array.from(currentAssetValuationsMap.entries())
+    .map(([assetId, current]) => {
+      const oneDayAgoValue = oneDayAgoAssetValuationsMap.get(assetId) ?? current.value;
+      const change = current.value - oneDayAgoValue;
+
+      return {
+        assetId,
+        name: current.name,
+        symbol: current.symbol,
+        currentValue: current.value,
+        oneDayAgoValue,
+        change,
+      };
+    })
+    .filter(asset => asset.currentValue > 0); // Only include assets with current value
+
+  // Find assets with largest increase and decrease
+  const assetsSortedByChange = [...assetChanges].sort((a, b) => b.change - a.change);
+  const largestAssetIncrease = assetsSortedByChange[0];
+  const largestAssetDecrease = assetsSortedByChange[assetsSortedByChange.length - 1];
 
   const incomeSplits = monthlySplits.filter(
     (split) =>
@@ -493,6 +624,47 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             </p>
           </CardContent>
         </Card>
+      </div>
+
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
+        {largestAccountIncrease && (
+          <ChangeCard
+            title="Account - Largest Gain (24h)"
+            name={largestAccountIncrease.name}
+            change={largestAccountIncrease.change}
+            currentValue={largestAccountIncrease.balance}
+            currency={largestAccountIncrease.currency}
+            isPositive={true}
+          />
+        )}
+        {largestAccountDecrease && (
+          <ChangeCard
+            title="Account - Largest Loss (24h)"
+            name={largestAccountDecrease.name}
+            change={largestAccountDecrease.change}
+            currentValue={largestAccountDecrease.balance}
+            currency={largestAccountDecrease.currency}
+            isPositive={false}
+          />
+        )}
+        {largestAssetIncrease && (
+          <ChangeCard
+            title="Asset - Largest Gain (24h)"
+            name={largestAssetIncrease.symbol || largestAssetIncrease.name}
+            change={largestAssetIncrease.change}
+            currentValue={largestAssetIncrease.currentValue}
+            isPositive={true}
+          />
+        )}
+        {largestAssetDecrease && (
+          <ChangeCard
+            title="Asset - Largest Loss (24h)"
+            name={largestAssetDecrease.symbol || largestAssetDecrease.name}
+            change={largestAssetDecrease.change}
+            currentValue={largestAssetDecrease.currentValue}
+            isPositive={false}
+          />
+        )}
       </div>
 
       <div className="grid gap-4 grid-cols-1 lg:grid-cols-3">
