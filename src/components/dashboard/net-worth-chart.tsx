@@ -27,6 +27,17 @@ const formatter = (value: number, currency: string) =>
     maximumFractionDigits: 0,
   }).format(value / 100);
 
+const yAxisFormatter = (value: number, currency: string) => {
+  const dollars = value / 100;
+  const thousands = dollars / 1000;
+  const symbol = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+  }).format(0).replace(/[\d.,]/g, '').trim();
+
+  return `${symbol}${Math.round(thousands)}k`;
+};
+
 export function NetWorthChart({ data, currency = "USD" }: NetWorthChartProps) {
   const values = data.map(d => d.value);
   const minValue = Math.min(...values);
@@ -70,7 +81,7 @@ export function NetWorthChart({ data, currency = "USD" }: NetWorthChartProps) {
         <YAxis
           stroke="var(--muted-foreground)"
           fontSize={12}
-          tickFormatter={(value) => formatter(value as number, currency)}
+          tickFormatter={(value) => yAxisFormatter(value as number, currency)}
           width={80}
           domain={yAxisDomain}
           ticks={generateTicks()}
