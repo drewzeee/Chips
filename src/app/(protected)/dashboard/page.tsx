@@ -322,75 +322,77 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const largestAccountIncrease = accountsSortedByChange[0];
   const largestAccountDecrease = accountsSortedByChange[accountsSortedByChange.length - 1];
 
-  // Calculate 24-hour asset changes by comparing current holdings to 24h ago
-  // Get all investment assets with their current holdings
-  const allInvestmentAssets = await prisma.investmentAsset.findMany({
-    where: { userId },
-    include: {
-      account: {
-        include: {
-          account: true,
-        },
-      },
-      transactions: {
-        orderBy: { occurredAt: "asc" },
-      },
+  // Calculate 24-hour asset changes by grouping investment transactions by symbol
+  const allInvestmentTransactions = await prisma.investmentTransaction.findMany({
+    where: {
+      userId,
+      symbol: { not: null },
+      assetType: { not: null },
+      type: { in: ['BUY', 'SELL'] },
     },
+    orderBy: { occurredAt: "asc" },
   });
 
-  const assetChanges = await Promise.all(
-    allInvestmentAssets.map(async (asset) => {
-      // Calculate current position
-      const allTrades = asset.transactions.filter(
-        t => (t.type === 'BUY' || t.type === 'SELL') && t.symbol === asset.symbol
-      );
+  // Group transactions by symbol+assetType
+  const assetTransactionsMap = new Map<string, typeof allInvestmentTransactions>();
+  for (const tx of allInvestmentTransactions) {
+    if (!tx.symbol || !tx.assetType) continue;
+    const key = `${tx.symbol}_${tx.assetType}`;
+    const existing = assetTransactionsMap.get(key) || [];
+    existing.push(tx);
+    assetTransactionsMap.set(key, existing);
+  }
 
-      const currentQuantity = allTrades.reduce((qty, trade) => {
+  const { fetchAllAssetPrices, calculatePositionValue } = await import('@/lib/asset-prices');
+
+  const assetChanges = await Promise.all(
+    Array.from(assetTransactionsMap.entries()).map(async ([key, transactions]) => {
+      const [symbol, assetType] = key.split('_') as [string, 'CRYPTO' | 'EQUITY'];
+
+      // Calculate current quantity
+      const currentQuantity = transactions.reduce((qty, trade) => {
         if (trade.type === 'BUY') return qty + Number(trade.quantity || 0);
         if (trade.type === 'SELL') return qty - Number(trade.quantity || 0);
         return qty;
       }, 0);
 
-      // Calculate 24h ago position
-      const tradesUpToOneDayAgo = allTrades.filter(t => t.occurredAt <= oneDayAgo);
+      // Calculate 24h ago quantity
+      const tradesUpToOneDayAgo = transactions.filter(t => t.occurredAt <= oneDayAgo);
       const oneDayAgoQuantity = tradesUpToOneDayAgo.reduce((qty, trade) => {
         if (trade.type === 'BUY') return qty + Number(trade.quantity || 0);
         if (trade.type === 'SELL') return qty - Number(trade.quantity || 0);
         return qty;
       }, 0);
 
-      // Skip if no holdings in either period
-      if (currentQuantity === 0 && oneDayAgoQuantity === 0) return null;
+      // Skip if no current holdings
+      if (currentQuantity <= 0) return null;
 
-      // Get current price from most recent trade or valuation
-      const { fetchAllAssetPrices, calculatePositionValue } = await import('@/lib/asset-prices');
-
+      // Get current market prices
       const currentPriceData = await fetchAllAssetPrices([{
-        symbol: asset.symbol || asset.name,
-        assetType: asset.type,
+        symbol,
+        assetType,
         quantity: currentQuantity
       }]);
 
       const currentPosition = calculatePositionValue({
-        symbol: asset.symbol || asset.name,
-        assetType: asset.type,
+        symbol,
+        assetType,
         quantity: currentQuantity
       }, currentPriceData);
 
       const oneDayAgoPosition = calculatePositionValue({
-        symbol: asset.symbol || asset.name,
-        assetType: asset.type,
+        symbol,
+        assetType,
         quantity: oneDayAgoQuantity
-      }, currentPriceData); // Use same price for both to isolate quantity changes
+      }, currentPriceData);
 
       const currentValue = Math.round(currentPosition.totalValue * 100); // Convert to cents
       const oneDayAgoValue = Math.round(oneDayAgoPosition.totalValue * 100);
       const change = currentValue - oneDayAgoValue;
 
       return {
-        assetId: asset.id,
-        name: asset.name,
-        symbol: asset.symbol,
+        symbol,
+        assetType,
         currentValue,
         oneDayAgoValue,
         change,
@@ -673,7 +675,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         {largestAssetIncrease && (
           <ChangeCard
             title="Asset - Largest Gain (24h)"
-            name={largestAssetIncrease.symbol || largestAssetIncrease.name}
+            name={largestAssetIncrease.symbol}
             change={largestAssetIncrease.change}
             currentValue={largestAssetIncrease.currentValue}
             isPositive={true}
@@ -682,7 +684,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         {largestAssetDecrease && (
           <ChangeCard
             title="Asset - Largest Loss (24h)"
-            name={largestAssetDecrease.symbol || largestAssetDecrease.name}
+            name={largestAssetDecrease.symbol}
             change={largestAssetDecrease.change}
             currentValue={largestAssetDecrease.currentValue}
             isPositive={false}
