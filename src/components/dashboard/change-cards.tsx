@@ -35,12 +35,25 @@ export function ChangeCard({
       <CardContent>
         <p className="text-xl font-semibold text-[var(--card-foreground)] truncate">{name}</p>
         <div className="mt-2 flex items-baseline gap-2">
-          <p className={`text-2xl font-bold ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-            {isPositive ? '+' : ''}{formatCurrency(change, currency)}
-          </p>
-          <p className={`text-sm ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-            ({isPositive ? '+' : ''}{changePercent}%)
-          </p>
+          {isAsset ? (
+            <>
+              <p className={`text-2xl font-bold ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                ({isPositive ? '+' : ''}{changePercent}%)
+              </p>
+              <p className={`text-sm ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                {isPositive ? '+' : ''}{formatCurrency(change, currency)}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className={`text-2xl font-bold ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                {isPositive ? '+' : ''}{formatCurrency(change, currency)}
+              </p>
+              <p className={`text-sm ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                ({isPositive ? '+' : ''}{changePercent}%)
+              </p>
+            </>
+          )}
         </div>
         {isAsset && pricePerUnit !== undefined ? (
           <p className="mt-1 text-sm text-[var(--muted-foreground)]">
