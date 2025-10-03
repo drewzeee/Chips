@@ -667,8 +667,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             isPositive={true}
             isAsset={true}
             pricePerUnit={largestAssetIncrease.pricePerUnit}
-            quantity={largestAssetIncrease.quantity}
-            totalValue={largestAssetIncrease.currentValue}
           />
         )}
         {largestAssetDecrease && (
@@ -680,8 +678,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             isPositive={false}
             isAsset={true}
             pricePerUnit={largestAssetDecrease.pricePerUnit}
-            quantity={largestAssetDecrease.quantity}
-            totalValue={largestAssetDecrease.currentValue}
           />
         )}
       </div>
