@@ -8,6 +8,11 @@ interface ChangeCardProps {
   currentValue: number;
   currency?: string;
   isPositive?: boolean;
+  // Asset-specific props
+  isAsset?: boolean;
+  pricePerUnit?: number;
+  quantity?: number;
+  totalValue?: number;
 }
 
 export function ChangeCard({
@@ -16,7 +21,11 @@ export function ChangeCard({
   change,
   currentValue,
   currency = "USD",
-  isPositive = true
+  isPositive = true,
+  isAsset = false,
+  pricePerUnit,
+  quantity,
+  totalValue
 }: ChangeCardProps) {
   const changePercent = currentValue !== 0
     ? ((change / (currentValue - change)) * 100).toFixed(2)
@@ -37,9 +46,22 @@ export function ChangeCard({
             ({isPositive ? '+' : ''}{changePercent}%)
           </p>
         </div>
-        <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-          Current: {formatCurrency(currentValue, currency)}
-        </p>
+        {isAsset && pricePerUnit !== undefined ? (
+          <>
+            <p className="mt-1 text-sm text-[var(--muted-foreground)]">
+              Price: {formatCurrency(pricePerUnit, currency)}
+            </p>
+            {quantity !== undefined && totalValue !== undefined && (
+              <p className="text-xs text-[var(--muted-foreground)]">
+                {quantity.toLocaleString(undefined, { maximumFractionDigits: 8 })} units • Total: {formatCurrency(totalValue, currency)}
+              </p>
+            )}
+          </>
+        ) : (
+          <p className="mt-1 text-sm text-[var(--muted-foreground)]">
+            Current: {formatCurrency(currentValue, currency)}
+          </p>
+        )}
       </CardContent>
     </Card>
   );

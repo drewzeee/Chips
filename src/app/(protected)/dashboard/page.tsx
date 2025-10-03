@@ -338,43 +338,60 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   });
 
   // Group current valuations by asset ID (most recent only)
-  const currentAssetValuationsMap = new Map<string, { value: number; symbol: string; asOf: Date }>();
+  const currentAssetValuationsMap = new Map<string, {
+    value: number;
+    symbol: string;
+    asOf: Date;
+    quantity: number;
+  }>();
   for (const valuation of currentAssetValuations) {
     if (!currentAssetValuationsMap.has(valuation.investmentAssetId)) {
       currentAssetValuationsMap.set(valuation.investmentAssetId, {
         value: valuation.value,
         symbol: valuation.asset.symbol || valuation.asset.name,
         asOf: valuation.asOf,
+        quantity: Number(valuation.quantity || 0),
       });
     }
   }
 
   // Group 24h ago valuations by asset ID (most recent before 24h ago)
-  const oneDayAgoAssetValuationsMap = new Map<string, number>();
+  const oneDayAgoAssetValuationsMap = new Map<string, { value: number; quantity: number }>();
   for (const valuation of oneDayAgoAssetValuations) {
     if (!oneDayAgoAssetValuationsMap.has(valuation.investmentAssetId)) {
-      oneDayAgoAssetValuationsMap.set(valuation.investmentAssetId, valuation.value);
+      oneDayAgoAssetValuationsMap.set(valuation.investmentAssetId, {
+        value: valuation.value,
+        quantity: Number(valuation.quantity || 0),
+      });
     }
   }
 
   // Calculate changes for each asset
   const assetChanges = Array.from(currentAssetValuationsMap.entries())
     .map(([assetId, current]) => {
-      const oneDayAgoValue = oneDayAgoAssetValuationsMap.get(assetId) ?? current.value;
-      const change = current.value - oneDayAgoValue;
+      const oneDayAgo = oneDayAgoAssetValuationsMap.get(assetId) ?? { value: current.value, quantity: current.quantity };
+      const change = current.value - oneDayAgo.value;
+
+      // Calculate price per unit
+      const currentPricePerUnit = current.quantity > 0 ? current.value / current.quantity : 0;
+      const oneDayAgoPricePerUnit = oneDayAgo.quantity > 0 ? oneDayAgo.value / oneDayAgo.quantity : 0;
+      const priceChange = currentPricePerUnit - oneDayAgoPricePerUnit;
 
       return {
         assetId,
         symbol: current.symbol,
         currentValue: current.value,
-        oneDayAgoValue,
+        oneDayAgoValue: oneDayAgo.value,
         change,
+        pricePerUnit: currentPricePerUnit,
+        priceChange,
+        quantity: current.quantity,
       };
     })
     .filter(asset => asset.currentValue > 0);
 
-  // Find assets with largest increase and decrease
-  const assetsSortedByChange = [...assetChanges].sort((a, b) => b.change - a.change);
+  // Find assets with largest increase and decrease (by price change, not total value change)
+  const assetsSortedByChange = [...assetChanges].sort((a, b) => b.priceChange - a.priceChange);
   const largestAssetIncrease = assetsSortedByChange[0];
   const largestAssetDecrease = assetsSortedByChange[assetsSortedByChange.length - 1];
 
@@ -645,18 +662,26 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <ChangeCard
             title="Asset - Largest Gain (24h)"
             name={largestAssetIncrease.symbol}
-            change={largestAssetIncrease.change}
-            currentValue={largestAssetIncrease.currentValue}
+            change={largestAssetIncrease.priceChange}
+            currentValue={largestAssetIncrease.pricePerUnit}
             isPositive={true}
+            isAsset={true}
+            pricePerUnit={largestAssetIncrease.pricePerUnit}
+            quantity={largestAssetIncrease.quantity}
+            totalValue={largestAssetIncrease.currentValue}
           />
         )}
         {largestAssetDecrease && (
           <ChangeCard
             title="Asset - Largest Loss (24h)"
             name={largestAssetDecrease.symbol}
-            change={largestAssetDecrease.change}
-            currentValue={largestAssetDecrease.currentValue}
+            change={largestAssetDecrease.priceChange}
+            currentValue={largestAssetDecrease.pricePerUnit}
             isPositive={false}
+            isAsset={true}
+            pricePerUnit={largestAssetDecrease.pricePerUnit}
+            quantity={largestAssetDecrease.quantity}
+            totalValue={largestAssetDecrease.currentValue}
           />
         )}
       </div>
