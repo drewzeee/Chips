@@ -32,7 +32,7 @@ export async function getSymbolValuationSnapshot(
         ) AS rn
       FROM "InvestmentAssetValuation" iav
       INNER JOIN "InvestmentAsset" ia ON ia.id = iav."investmentAssetId"
-      WHERE ia."userId" = ${userId} AND iav."asOf" <= ${targetDate}
+      WHERE ia."userId" = ${userId} AND iav."asOf" <= ${targetDate} AND iav.value > 0
     )
     SELECT
       UPPER(TRIM(raw_symbol)) AS symbol,
