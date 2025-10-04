@@ -28,6 +28,7 @@ import {
 } from "@/lib/dashboard";
 import { NetWorthRangeSelector } from "@/components/dashboard/net-worth-range-selector";
 import { calculateInvestmentAccountBalance } from "@/lib/investment-calculations";
+import { getSymbolValuationSnapshot } from "@/lib/asset-valuation-snapshots";
 
 function sumValues(values: number[]) {
   return values.reduce((total, value) => total + value, 0);
@@ -317,173 +318,54 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const largestAccountIncrease = accountsSortedByChange[0];
   const largestAccountDecrease = accountsSortedByChange[accountsSortedByChange.length - 1];
 
-  // Calculate 24-hour asset changes using stored asset valuations
-  // Get current asset valuations (most recent for each asset)
-  const currentAssetValuations = await prisma.investmentAssetValuation.findMany({
-    where: { userId },
-    include: { asset: true },
-    orderBy: [
-      { asOf: "desc" },
-      { createdAt: "desc" }
-    ],
-  });
+  // Calculate 24-hour asset price changes using derived symbol snapshots
+  const [currentSymbolSnapshots, priorSymbolSnapshots] = await Promise.all([
+    getSymbolValuationSnapshot(userId, now),
+    getSymbolValuationSnapshot(userId, oneDayAgo),
+  ]);
 
-  // Get asset valuations from 24 hours ago (most recent before 24h for each asset)
-  const oneDayAgoAssetValuations = await prisma.investmentAssetValuation.findMany({
-    where: {
-      userId,
-      asOf: {
-        lte: oneDayAgo,
-      },
-    },
-    include: { asset: true },
-    orderBy: [
-      { asOf: "desc" },
-      { createdAt: "desc" }
-    ],
-  });
+  const priorSnapshotMap = new Map(priorSymbolSnapshots.map((snapshot) => [snapshot.symbol, snapshot]));
 
-  // Group valuations by asset ID (take most recent for each)
-  const currentAssetValuationsMap = new Map<string, {
-    value: number;
-    symbol: string;
-    asOf: Date;
-    quantity: number;
-  }>();
-  for (const valuation of currentAssetValuations) {
-    // Only take the first (most recent) valuation for each asset
-    if (!currentAssetValuationsMap.has(valuation.investmentAssetId)) {
-      currentAssetValuationsMap.set(valuation.investmentAssetId, {
-        value: valuation.value,
-        symbol: valuation.asset.symbol || valuation.asset.name,
-        asOf: valuation.asOf,
-        quantity: Number(valuation.quantity || 0),
-      });
-    }
-  }
-
-  // Group 24h-ago valuations by asset ID (take most recent before 24h for each)
-  const oneDayAgoAssetValuationsMap = new Map<string, { value: number; quantity: number; asOf: Date }>();
-  for (const valuation of oneDayAgoAssetValuations) {
-    // Only take the first (most recent) valuation for each asset
-    if (!oneDayAgoAssetValuationsMap.has(valuation.investmentAssetId)) {
-      oneDayAgoAssetValuationsMap.set(valuation.investmentAssetId, {
-        value: valuation.value,
-        quantity: Number(valuation.quantity || 0),
-        asOf: valuation.asOf,
-      });
-    }
-  }
-
-  // Calculate changes for each asset
-  const assetChanges = Array.from(currentAssetValuationsMap.entries())
-    .map(([assetId, current]) => {
-      const oneDayAgo = oneDayAgoAssetValuationsMap.get(assetId);
-
-      // Skip assets without 24h history
-      if (!oneDayAgo) {
+  const symbolPriceChanges = currentSymbolSnapshots
+    .map((snapshot) => {
+      const previous = priorSnapshotMap.get(snapshot.symbol);
+      if (!previous) {
         return null;
       }
 
-      const hoursBetween = Math.abs(current.asOf.getTime() - oneDayAgo.asOf.getTime()) / (1000 * 60 * 60);
-      // Require comparison point within roughly the last 36 hours to avoid stale data
+      if (snapshot.totalQuantity <= 0 || previous.totalQuantity <= 0) {
+        return null;
+      }
+
+      const currentPricePerUnit = snapshot.totalValue / snapshot.totalQuantity;
+      const previousPricePerUnit = previous.totalValue / previous.totalQuantity;
+
+      // Avoid unreliable data when the snapshots are stale or wildly different in timing
+      const hoursBetween = Math.abs(snapshot.asOf.getTime() - previous.asOf.getTime()) / (1000 * 60 * 60);
       if (hoursBetween > 36) {
         return null;
       }
 
-      const change = current.value - oneDayAgo.value;
-
-      // Calculate price per unit
-      const currentPricePerUnit = current.quantity > 0 ? current.value / current.quantity : 0;
-      const oneDayAgoPricePerUnit = oneDayAgo.quantity > 0 ? oneDayAgo.value / oneDayAgo.quantity : 0;
-      const priceChange = currentPricePerUnit - oneDayAgoPricePerUnit;
-
       return {
-        assetId,
-        symbol: current.symbol,
-        currentValue: current.value,
-        oneDayAgoValue: oneDayAgo.value,
-        change,
+        symbol: snapshot.symbol,
         pricePerUnit: currentPricePerUnit,
-        priceChange,
-        quantity: current.quantity,
-        oneDayAgoQuantity: oneDayAgo.quantity,
-        oneDayAgoAsOf: oneDayAgo.asOf,
+        previousPricePerUnit,
+        priceChange: currentPricePerUnit - previousPricePerUnit,
       };
     })
-    .filter((asset): asset is NonNullable<typeof asset> => asset !== null && asset.currentValue > 0);
+    .filter((entry): entry is NonNullable<typeof entry> => entry !== null && Number.isFinite(entry.pricePerUnit));
 
-  // Aggregate asset changes by symbol so holdings across accounts are combined
-  const aggregatedAssetChanges = Array.from(
-    assetChanges.reduce((acc, asset) => {
-      const normalizedSymbol = asset.symbol?.trim().toUpperCase();
-      const key = normalizedSymbol && normalizedSymbol.length > 0 ? normalizedSymbol : asset.assetId;
-      const existing = acc.get(key) ?? {
-        assetId: key,
-        symbol: asset.symbol ?? key,
-        displaySymbol: asset.symbol ?? key,
-        currentValue: 0,
-        oneDayAgoValue: 0,
-        change: 0,
-        quantity: 0,
-        oneDayAgoQuantity: 0,
-      };
-
-      existing.currentValue += asset.currentValue;
-      existing.oneDayAgoValue += asset.oneDayAgoValue;
-      existing.change += asset.change;
-      existing.quantity += asset.quantity;
-      existing.oneDayAgoQuantity += asset.oneDayAgoQuantity;
-
-      acc.set(key, existing);
-      return acc;
-    }, new Map<string, {
-      assetId: string;
-      symbol: string;
-      displaySymbol: string;
-      currentValue: number;
-      oneDayAgoValue: number;
-      change: number;
-      quantity: number;
-      oneDayAgoQuantity: number;
-    }>()).values()
-  ).map((asset) => {
-    const pricePerUnit = asset.quantity > 0 ? asset.currentValue / asset.quantity : 0;
-    const oneDayAgoPricePerUnit = asset.oneDayAgoQuantity > 0
-      ? asset.oneDayAgoValue / asset.oneDayAgoQuantity
-      : 0;
-
-    return {
-      ...asset,
-      symbol: asset.displaySymbol,
-      pricePerUnit,
-      priceChange: pricePerUnit - oneDayAgoPricePerUnit,
-      oneDayAgoPricePerUnit,
-    };
-  })
-    // Skip assets without enough data to compute price movement or meaningful comparisons
-    .filter(
-      (asset) =>
-        asset.quantity > 0 &&
-        asset.oneDayAgoQuantity > 0 &&
-        asset.currentValue > 0 &&
-        asset.oneDayAgoValue > 0
-    );
-
-  // Find assets with largest increase and decrease (by price change, not total value change)
-  const assetsWithPriceGain = aggregatedAssetChanges
+  const assetsWithPriceGain = symbolPriceChanges
     .filter((asset) => asset.priceChange > 0)
     .sort((a, b) => b.priceChange - a.priceChange);
-  const assetsWithPriceLoss = aggregatedAssetChanges
+  const assetsWithPriceLoss = symbolPriceChanges
     .filter((asset) => asset.priceChange < 0)
     .sort((a, b) => a.priceChange - b.priceChange);
 
   const largestAssetIncrease = assetsWithPriceGain[0];
-  let largestAssetDecrease = assetsWithPriceLoss[0];
-
-  if (largestAssetIncrease && largestAssetDecrease && largestAssetIncrease.assetId === largestAssetDecrease.assetId) {
-    largestAssetDecrease = assetsWithPriceLoss[1];
-  }
+  const largestAssetDecrease = assetsWithPriceLoss.find(
+    (asset) => !largestAssetIncrease || asset.symbol !== largestAssetIncrease.symbol
+  );
 
   const incomeSplits = monthlySplits.filter(
     (split) =>
