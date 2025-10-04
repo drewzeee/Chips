@@ -326,7 +326,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       { asOf: "desc" },
       { createdAt: "desc" }
     ],
-    distinct: ['investmentAssetId'],
   });
 
   // Get asset valuations from 24 hours ago (most recent before 24h for each asset)
@@ -342,10 +341,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       { asOf: "desc" },
       { createdAt: "desc" }
     ],
-    distinct: ['investmentAssetId'],
   });
 
-  // Convert to maps for lookup (distinct query already ensures one per asset)
+  // Group valuations by asset ID (take most recent for each)
   const currentAssetValuationsMap = new Map<string, {
     value: number;
     symbol: string;
@@ -353,21 +351,27 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     quantity: number;
   }>();
   for (const valuation of currentAssetValuations) {
-    currentAssetValuationsMap.set(valuation.investmentAssetId, {
-      value: valuation.value,
-      symbol: valuation.asset.symbol || valuation.asset.name,
-      asOf: valuation.asOf,
-      quantity: Number(valuation.quantity || 0),
-    });
+    // Only take the first (most recent) valuation for each asset
+    if (!currentAssetValuationsMap.has(valuation.investmentAssetId)) {
+      currentAssetValuationsMap.set(valuation.investmentAssetId, {
+        value: valuation.value,
+        symbol: valuation.asset.symbol || valuation.asset.name,
+        asOf: valuation.asOf,
+        quantity: Number(valuation.quantity || 0),
+      });
+    }
   }
 
-  // Convert to maps for lookup (distinct query already ensures one per asset)
+  // Group 24h-ago valuations by asset ID (take most recent before 24h for each)
   const oneDayAgoAssetValuationsMap = new Map<string, { value: number; quantity: number }>();
   for (const valuation of oneDayAgoAssetValuations) {
-    oneDayAgoAssetValuationsMap.set(valuation.investmentAssetId, {
-      value: valuation.value,
-      quantity: Number(valuation.quantity || 0),
-    });
+    // Only take the first (most recent) valuation for each asset
+    if (!oneDayAgoAssetValuationsMap.has(valuation.investmentAssetId)) {
+      oneDayAgoAssetValuationsMap.set(valuation.investmentAssetId, {
+        value: valuation.value,
+        quantity: Number(valuation.quantity || 0),
+      });
+    }
   }
 
   // Calculate changes for each asset
