@@ -318,14 +318,18 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const largestAccountDecrease = accountsSortedByChange[accountsSortedByChange.length - 1];
 
   // Calculate 24-hour asset changes using stored asset valuations
-  // Get current asset valuations
+  // Get current asset valuations (most recent for each asset)
   const currentAssetValuations = await prisma.investmentAssetValuation.findMany({
     where: { userId },
     include: { asset: true },
-    orderBy: { asOf: "desc" },
+    orderBy: [
+      { asOf: "desc" },
+      { createdAt: "desc" }
+    ],
+    distinct: ['investmentAssetId'],
   });
 
-  // Get asset valuations from 24 hours ago
+  // Get asset valuations from 24 hours ago (most recent before 24h for each asset)
   const oneDayAgoAssetValuations = await prisma.investmentAssetValuation.findMany({
     where: {
       userId,
@@ -334,10 +338,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       },
     },
     include: { asset: true },
-    orderBy: { asOf: "desc" },
+    orderBy: [
+      { asOf: "desc" },
+      { createdAt: "desc" }
+    ],
+    distinct: ['investmentAssetId'],
   });
 
-  // Group current valuations by asset ID (most recent only)
+  // Convert to maps for lookup (distinct query already ensures one per asset)
   const currentAssetValuationsMap = new Map<string, {
     value: number;
     symbol: string;
@@ -345,25 +353,21 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     quantity: number;
   }>();
   for (const valuation of currentAssetValuations) {
-    if (!currentAssetValuationsMap.has(valuation.investmentAssetId)) {
-      currentAssetValuationsMap.set(valuation.investmentAssetId, {
-        value: valuation.value,
-        symbol: valuation.asset.symbol || valuation.asset.name,
-        asOf: valuation.asOf,
-        quantity: Number(valuation.quantity || 0),
-      });
-    }
+    currentAssetValuationsMap.set(valuation.investmentAssetId, {
+      value: valuation.value,
+      symbol: valuation.asset.symbol || valuation.asset.name,
+      asOf: valuation.asOf,
+      quantity: Number(valuation.quantity || 0),
+    });
   }
 
-  // Group 24h ago valuations by asset ID (most recent before 24h ago)
+  // Convert to maps for lookup (distinct query already ensures one per asset)
   const oneDayAgoAssetValuationsMap = new Map<string, { value: number; quantity: number }>();
   for (const valuation of oneDayAgoAssetValuations) {
-    if (!oneDayAgoAssetValuationsMap.has(valuation.investmentAssetId)) {
-      oneDayAgoAssetValuationsMap.set(valuation.investmentAssetId, {
-        value: valuation.value,
-        quantity: Number(valuation.quantity || 0),
-      });
-    }
+    oneDayAgoAssetValuationsMap.set(valuation.investmentAssetId, {
+      value: valuation.value,
+      quantity: Number(valuation.quantity || 0),
+    });
   }
 
   // Calculate changes for each asset
