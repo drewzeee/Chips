@@ -75,7 +75,7 @@ export function AccountLedgerView({ investmentAccountId, onBack }: AccountLedger
     const isPositive = value >= 0;
     const color = isPositive ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400";
     const sign = isPositive ? "+" : "";
-    return <span className={color}>{sign}${Math.round(Math.abs(value) * 100).toLocaleString()}</span>;
+    return <span className={color}>{sign}${Math.round(Math.abs(value)).toLocaleString()}</span>;
   };
 
   const formatGainLossPercent = (value: number) => {
@@ -89,7 +89,7 @@ export function AccountLedgerView({ investmentAccountId, onBack }: AccountLedger
     const isPositive = value >= 0;
     const color = isPositive ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400";
     const sign = isPositive ? "+" : "";
-    return <span className={color}>{sign}${Math.round(Math.abs(value) * 100).toLocaleString()}</span>;
+    return <span className={color}>{sign}${Math.round(Math.abs(value)).toLocaleString()}</span>;
   };
 
   return (
@@ -218,10 +218,18 @@ export function AccountLedgerView({ investmentAccountId, onBack }: AccountLedger
                         })}
                       </TableCell>
                       <TableCell>
-                        ${Math.round(holding.averageCost).toLocaleString()}
+                        ${holding.averageCost < 1
+                          ? holding.averageCost.toLocaleString('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 })
+                          : holding.averageCost < 100
+                          ? holding.averageCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                          : Math.round(holding.averageCost).toLocaleString()}
                       </TableCell>
                       <TableCell>
-                        ${Math.round(holding.currentPrice).toLocaleString()}
+                        ${holding.currentPrice < 1
+                          ? holding.currentPrice.toLocaleString('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 })
+                          : holding.currentPrice < 100
+                          ? holding.currentPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                          : Math.round(holding.currentPrice).toLocaleString()}
                       </TableCell>
                       <TableCell>
                         {formatChange24h(holding.change24h * holding.quantity)}
@@ -230,10 +238,10 @@ export function AccountLedgerView({ investmentAccountId, onBack }: AccountLedger
                         {formatGainLossPercent(holding.changePercent24h)}
                       </TableCell>
                       <TableCell className="font-medium">
-                        ${Math.round(holding.marketValue * 100).toLocaleString()}
+                        ${Math.round(holding.marketValue).toLocaleString()}
                       </TableCell>
                       <TableCell>
-                        ${Math.round(holding.costBasis * 100).toLocaleString()}
+                        ${Math.round(holding.costBasis).toLocaleString()}
                       </TableCell>
                       <TableCell>
                         {formatGainLoss(holding.unrealizedGainLoss)}
