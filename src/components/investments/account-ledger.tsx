@@ -75,7 +75,7 @@ export function AccountLedgerView({ investmentAccountId, onBack }: AccountLedger
     const isPositive = value >= 0;
     const color = isPositive ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400";
     const sign = isPositive ? "+" : "";
-    return <span className={color}>{sign}{formatCurrency(Math.abs(value) * 100, ledger.currency)}</span>;
+    return <span className={color}>{sign}${Math.round(Math.abs(value) * 100).toLocaleString()}</span>;
   };
 
   const formatGainLossPercent = (value: number) => {
@@ -89,7 +89,7 @@ export function AccountLedgerView({ investmentAccountId, onBack }: AccountLedger
     const isPositive = value >= 0;
     const color = isPositive ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400";
     const sign = isPositive ? "+" : "";
-    return <span className={color}>{sign}{formatCurrency(Math.abs(value) * 100, ledger.currency)}</span>;
+    return <span className={color}>{sign}${Math.round(Math.abs(value) * 100).toLocaleString()}</span>;
   };
 
   return (
@@ -187,8 +187,8 @@ export function AccountLedgerView({ investmentAccountId, onBack }: AccountLedger
                     <TableHeaderCell>Quantity</TableHeaderCell>
                     <TableHeaderCell>Avg Cost</TableHeaderCell>
                     <TableHeaderCell>Current Price</TableHeaderCell>
-                    <TableHeaderCell>24h Change $</TableHeaderCell>
-                    <TableHeaderCell>24h Change %</TableHeaderCell>
+                    <TableHeaderCell>24h Chg $</TableHeaderCell>
+                    <TableHeaderCell>24h Chg %</TableHeaderCell>
                     <TableHeaderCell>Market Value</TableHeaderCell>
                     <TableHeaderCell>Cost Basis</TableHeaderCell>
                     <TableHeaderCell>Unrealized P&L</TableHeaderCell>
@@ -213,15 +213,15 @@ export function AccountLedgerView({ investmentAccountId, onBack }: AccountLedger
                       </TableCell>
                       <TableCell>
                         {holding.quantity.toLocaleString('en-US', {
-                          minimumFractionDigits: holding.assetType === 'CRYPTO' ? 6 : 0,
-                          maximumFractionDigits: holding.assetType === 'CRYPTO' ? 6 : 0
+                          minimumFractionDigits: 1,
+                          maximumFractionDigits: 1
                         })}
                       </TableCell>
                       <TableCell>
-                        ${holding.assetType === 'CASH' ? holding.averageCost.toFixed(2) : formatAssetPrice(holding.averageCost, holding.assetType)}
+                        ${Math.round(holding.averageCost).toLocaleString()}
                       </TableCell>
                       <TableCell>
-                        ${holding.assetType === 'CASH' ? holding.currentPrice.toFixed(2) : formatAssetPrice(holding.currentPrice, holding.assetType)}
+                        ${Math.round(holding.currentPrice).toLocaleString()}
                       </TableCell>
                       <TableCell>
                         {formatChange24h(holding.change24h * holding.quantity)}
@@ -230,10 +230,10 @@ export function AccountLedgerView({ investmentAccountId, onBack }: AccountLedger
                         {formatGainLossPercent(holding.changePercent24h)}
                       </TableCell>
                       <TableCell className="font-medium">
-                        {formatCurrency(holding.marketValue * 100, ledger.currency)}
+                        ${Math.round(holding.marketValue * 100).toLocaleString()}
                       </TableCell>
                       <TableCell>
-                        {formatCurrency(holding.costBasis * 100, ledger.currency)}
+                        ${Math.round(holding.costBasis * 100).toLocaleString()}
                       </TableCell>
                       <TableCell>
                         {formatGainLoss(holding.unrealizedGainLoss)}
