@@ -664,7 +664,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             name={largestAssetIncrease.symbol}
             change={largestAssetIncrease.priceChange}
             currentValue={largestAssetIncrease.pricePerUnit}
-            isPositive={true}
+            isPositive={largestAssetIncrease.priceChange >= 0}
             isAsset={true}
             pricePerUnit={largestAssetIncrease.pricePerUnit}
           />
@@ -675,7 +675,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             name={largestAssetDecrease.symbol}
             change={largestAssetDecrease.priceChange}
             currentValue={largestAssetDecrease.pricePerUnit}
-            isPositive={false}
+            isPositive={largestAssetDecrease.priceChange >= 0}
             isAsset={true}
             pricePerUnit={largestAssetDecrease.pricePerUnit}
           />
