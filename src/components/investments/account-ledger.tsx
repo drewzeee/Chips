@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { formatCurrency } from "@/lib/utils";
-import { getAssetDisplayName, formatAssetPrice } from "@/lib/asset-prices";
+import { getAssetDisplayName } from "@/lib/asset-prices";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";

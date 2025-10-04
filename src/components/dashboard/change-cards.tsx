@@ -23,8 +23,9 @@ export function ChangeCard({
   isAsset = false,
   pricePerUnit
 }: ChangeCardProps) {
-  const changePercent = currentValue !== 0
-    ? ((change / (currentValue - change)) * 100).toFixed(2)
+  const previousValue = currentValue - change;
+  const changePercent = previousValue !== 0
+    ? ((change / previousValue) * 100).toFixed(2)
     : "0.00";
 
   return (
