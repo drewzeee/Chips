@@ -405,9 +405,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     .filter((asset): asset is NonNullable<typeof asset> => asset !== null && asset.currentValue > 0);
 
   // Find assets with largest increase and decrease (by price change, not total value change)
-  const assetsSortedByChange = [...assetChanges].sort((a, b) => b.priceChange - a.priceChange);
-  const largestAssetIncrease = assetsSortedByChange[0];
-  const largestAssetDecrease = assetsSortedByChange[assetsSortedByChange.length - 1];
+  const assetsWithPriceGain = assetChanges
+    .filter((asset) => asset.priceChange > 0)
+    .sort((a, b) => b.priceChange - a.priceChange);
+  const assetsWithPriceLoss = assetChanges
+    .filter((asset) => asset.priceChange < 0)
+    .sort((a, b) => a.priceChange - b.priceChange);
+
+  const largestAssetIncrease = assetsWithPriceGain[0];
+  const largestAssetDecrease = assetsWithPriceLoss[0];
 
   const incomeSplits = monthlySplits.filter(
     (split) =>
