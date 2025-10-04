@@ -400,20 +400,80 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         pricePerUnit: currentPricePerUnit,
         priceChange,
         quantity: current.quantity,
+        oneDayAgoQuantity: oneDayAgo.quantity,
       };
     })
     .filter((asset): asset is NonNullable<typeof asset> => asset !== null && asset.currentValue > 0);
 
-  // Find assets with largest increase and decrease (by price change, not total value change)
-  const assetsWithPriceGain = assetChanges
-    .filter((asset) => asset.priceChange > 0)
-    .sort((a, b) => b.priceChange - a.priceChange);
-  const assetsWithPriceLoss = assetChanges
-    .filter((asset) => asset.priceChange < 0)
-    .sort((a, b) => a.priceChange - b.priceChange);
+  // Aggregate asset changes by symbol so holdings across accounts are combined
+  const aggregatedAssetChanges = Array.from(
+    assetChanges.reduce((acc, asset) => {
+      const normalizedSymbol = asset.symbol?.trim().toUpperCase();
+      const key = normalizedSymbol && normalizedSymbol.length > 0 ? normalizedSymbol : asset.assetId;
+      const existing = acc.get(key) ?? {
+        assetId: key,
+        symbol: asset.symbol ?? key,
+        displaySymbol: asset.symbol ?? key,
+        currentValue: 0,
+        oneDayAgoValue: 0,
+        change: 0,
+        quantity: 0,
+        oneDayAgoQuantity: 0,
+      };
 
-  const largestAssetIncrease = assetsWithPriceGain[0];
-  const largestAssetDecrease = assetsWithPriceLoss[0];
+      existing.currentValue += asset.currentValue;
+      existing.oneDayAgoValue += asset.oneDayAgoValue;
+      existing.change += asset.change;
+      existing.quantity += asset.quantity;
+      existing.oneDayAgoQuantity += asset.oneDayAgoQuantity;
+
+      acc.set(key, existing);
+      return acc;
+    }, new Map<string, {
+      assetId: string;
+      symbol: string;
+      displaySymbol: string;
+      currentValue: number;
+      oneDayAgoValue: number;
+      change: number;
+      quantity: number;
+      oneDayAgoQuantity: number;
+    }>()).values()
+  ).map((asset) => {
+    const pricePerUnit = asset.quantity > 0 ? asset.currentValue / asset.quantity : 0;
+    const oneDayAgoPricePerUnit = asset.oneDayAgoQuantity > 0
+      ? asset.oneDayAgoValue / asset.oneDayAgoQuantity
+      : 0;
+
+    return {
+      ...asset,
+      symbol: asset.displaySymbol,
+      pricePerUnit,
+      priceChange: pricePerUnit - oneDayAgoPricePerUnit,
+      oneDayAgoPricePerUnit,
+    };
+  })
+    // Skip assets without enough data to compute price movement or meaningful comparisons
+    .filter(
+      (asset) =>
+        asset.quantity > 0 &&
+        asset.oneDayAgoQuantity > 0 &&
+        asset.currentValue > 0 &&
+        asset.oneDayAgoValue > 0
+    );
+
+  // Find assets with largest increase and decrease (by price change, not total value change)
+  const assetsWithValueGain = aggregatedAssetChanges
+    .filter((asset) => asset.change > 0)
+    .sort((a, b) => b.change - a.change);
+  const assetsWithValueLoss = aggregatedAssetChanges
+    .filter((asset) => asset.change < 0)
+    .sort((a, b) => a.change - b.change);
+
+  const largestAssetIncrease = assetsWithValueGain[0];
+  const largestAssetDecrease = assetsWithValueLoss.find(
+    (asset) => !largestAssetIncrease || asset.assetId !== largestAssetIncrease.assetId
+  );
 
   const incomeSplits = monthlySplits.filter(
     (split) =>
@@ -682,9 +742,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <ChangeCard
             title="Asset - Largest Gain (24h)"
             name={largestAssetIncrease.symbol}
-            change={largestAssetIncrease.priceChange}
-            currentValue={largestAssetIncrease.pricePerUnit}
-            isPositive={largestAssetIncrease.priceChange >= 0}
+            change={largestAssetIncrease.change}
+            currentValue={largestAssetIncrease.currentValue}
+            isPositive={largestAssetIncrease.change >= 0}
             isAsset={true}
             pricePerUnit={largestAssetIncrease.pricePerUnit}
           />
@@ -693,9 +753,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <ChangeCard
             title="Asset - Largest Loss (24h)"
             name={largestAssetDecrease.symbol}
-            change={largestAssetDecrease.priceChange}
-            currentValue={largestAssetDecrease.pricePerUnit}
-            isPositive={largestAssetDecrease.priceChange >= 0}
+            change={largestAssetDecrease.change}
+            currentValue={largestAssetDecrease.currentValue}
+            isPositive={largestAssetDecrease.change >= 0}
             isAsset={true}
             pricePerUnit={largestAssetDecrease.pricePerUnit}
           />
