@@ -369,7 +369,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   // Calculate changes for each asset
   const assetChanges = Array.from(currentAssetValuationsMap.entries())
     .map(([assetId, current]) => {
-      const oneDayAgo = oneDayAgoAssetValuationsMap.get(assetId) ?? { value: current.value, quantity: current.quantity };
+      const oneDayAgo = oneDayAgoAssetValuationsMap.get(assetId);
+
+      // Skip assets without 24h history
+      if (!oneDayAgo) {
+        return null;
+      }
+
       const change = current.value - oneDayAgo.value;
 
       // Calculate price per unit
@@ -388,7 +394,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         quantity: current.quantity,
       };
     })
-    .filter(asset => asset.currentValue > 0);
+    .filter((asset): asset is NonNullable<typeof asset> => asset !== null && asset.currentValue > 0);
 
   // Find assets with largest increase and decrease (by price change, not total value change)
   const assetsSortedByChange = [...assetChanges].sort((a, b) => b.priceChange - a.priceChange);
