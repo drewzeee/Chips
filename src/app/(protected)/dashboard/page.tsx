@@ -363,13 +363,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   }
 
   // Group 24h-ago valuations by asset ID (take most recent before 24h for each)
-  const oneDayAgoAssetValuationsMap = new Map<string, { value: number; quantity: number }>();
+  const oneDayAgoAssetValuationsMap = new Map<string, { value: number; quantity: number; asOf: Date }>();
   for (const valuation of oneDayAgoAssetValuations) {
     // Only take the first (most recent) valuation for each asset
     if (!oneDayAgoAssetValuationsMap.has(valuation.investmentAssetId)) {
       oneDayAgoAssetValuationsMap.set(valuation.investmentAssetId, {
         value: valuation.value,
         quantity: Number(valuation.quantity || 0),
+        asOf: valuation.asOf,
       });
     }
   }
@@ -381,6 +382,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
       // Skip assets without 24h history
       if (!oneDayAgo) {
+        return null;
+      }
+
+      const hoursBetween = Math.abs(current.asOf.getTime() - oneDayAgo.asOf.getTime()) / (1000 * 60 * 60);
+      // Require comparison point within roughly the last 36 hours to avoid stale data
+      if (hoursBetween > 36) {
         return null;
       }
 
@@ -401,6 +408,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         priceChange,
         quantity: current.quantity,
         oneDayAgoQuantity: oneDayAgo.quantity,
+        oneDayAgoAsOf: oneDayAgo.asOf,
       };
     })
     .filter((asset): asset is NonNullable<typeof asset> => asset !== null && asset.currentValue > 0);
